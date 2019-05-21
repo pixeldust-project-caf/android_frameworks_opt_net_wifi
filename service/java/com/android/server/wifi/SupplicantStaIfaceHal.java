@@ -248,8 +248,8 @@ public class SupplicantStaIfaceHal {
     }
 
     /**
-     * Registers a service notification for the ISupplicant service, which triggers intialization of
-     * the ISupplicantStaIface
+     * Registers a service notification for the ISupplicant service, which triggers initialization
+     * of the ISupplicantStaIface
      * @return true if the service notification was successfully registered
      */
     public boolean initialize() {
@@ -445,7 +445,7 @@ public class SupplicantStaIfaceHal {
             } else if (isV1_1()) {
                 android.hardware.wifi.supplicant.V1_1.ISupplicantStaIface iface =
                     getStaIfaceMockableV1_1(ifaceHwBinder);
-                SupplicantStaIfaceHalCallbackV1_1 callbackV1_1 =
+            SupplicantStaIfaceHalCallbackV1_1 callbackV1_1 =
                     new SupplicantStaIfaceHalCallbackV1_1(ifaceName, callback);
 
                 if (!registerCallbackV1_1(iface, callbackV1_1)) {
@@ -932,8 +932,8 @@ public class SupplicantStaIfaceHal {
     protected android.hardware.wifi.supplicant.V1_1.ISupplicantStaIface
             getStaIfaceMockableV1_1(ISupplicantIface iface) {
         synchronized (mLock) {
-            return android.hardware.wifi.supplicant.V1_1.ISupplicantStaIface.
-                    asInterface(iface.asBinder());
+            return android.hardware.wifi.supplicant.V1_1.ISupplicantStaIface
+                    .asInterface(iface.asBinder());
         }
     }
 
@@ -3241,6 +3241,17 @@ public class SupplicantStaIfaceHal {
                                 mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1);
                     }
                 }
+
+                // For WEP password error: not check status code to avoid IoT issues with AP.
+                WifiConfiguration wificonfig = getCurrentNetworkLocalConfig(mIfaceName);
+                if (wificonfig != null && WifiConfigurationUtil.isConfigForWepNetwork(wificonfig)) {
+                    logCallback("WEP incorrect password");
+                    mWifiMonitor.broadcastAuthenticationFailureEvent(
+                        mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1);
+                    // Not broadcast ASSOC REJECT to avoid bssid get blacklisted.
+                    return;
+                }
+
                 mWifiMonitor.broadcastAssociationRejectionEvent(mIfaceName, statusCode, timedOut,
                         NativeUtil.macAddressFromByteArray(bssid));
             }
