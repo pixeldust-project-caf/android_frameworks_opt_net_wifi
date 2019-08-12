@@ -386,28 +386,10 @@ public class SoftApManager implements ActiveModeManager {
             public void onDown(String ifaceName) { }
         };
 
-        private boolean validateDualSapSetupResult(int result) {
-            if (result != SUCCESS) {
-                int failureReason = WifiManager.SAP_START_FAILURE_GENERAL;
-                if (result == ERROR_NO_CHANNEL) {
-                    failureReason = WifiManager.SAP_START_FAILURE_NO_CHANNEL;
-                }
-                updateApState(WifiManager.WIFI_AP_STATE_FAILED,
-                              WifiManager.WIFI_AP_STATE_ENABLING,
-                              failureReason);
-                stopSoftAp();
-                mWifiMetrics.incrementSoftApStartResult(false, failureReason);
-                return false;
-            }
-            if (!mWifiNative.setHostapdParams("softap bridge up " +mApInterfaceName)) {
-               Log.e(TAG, "Failed to set interface up " +mApInterfaceName);
-               return false;
-            }
-
-            return true;
-        }
-
-        private boolean setupInterfacesForDualSoftApMode() {
+        /**
+         * Start Dual soft AP.
+         */
+        private boolean setupForDualSoftApMode(WifiConfiguration config) {
             mdualApInterfaces[0] = mWifiNative.setupInterfaceForSoftApMode(
                     mWifiNativeDualIfaceCallback);
             mdualApInterfaces[1] = mWifiNative.setupInterfaceForSoftApMode(
@@ -436,19 +418,7 @@ public class SoftApManager implements ActiveModeManager {
             updateApState(WifiManager.WIFI_AP_STATE_ENABLING,
                     WifiManager.WIFI_AP_STATE_DISABLED, 0);
 
-            return true;
-        }
-
-        /**
-         * Start Dual band soft AP.
-         */
-        private boolean setupForDualBandSoftApMode(WifiConfiguration config) {
-            if (!setupInterfacesForDualSoftApMode())
-                return false;
-
             WifiConfiguration localConfig = new WifiConfiguration(config);
-            String bridgeIfacename = mApInterfaceName;
-
             mApInterfaceName = mdualApInterfaces[0];
             localConfig.apBand =  WifiConfiguration.AP_BAND_2GHZ;
             int result = startSoftAp(localConfig);
@@ -459,38 +429,24 @@ public class SoftApManager implements ActiveModeManager {
             }
 
             mApInterfaceName = bridgeIfacename;
-
-            return validateDualSapSetupResult(result);
-        }
-
-        /**
-         * Start OWE transition soft AP.
-         */
-        private boolean setupForOweTransitionSoftApMode(WifiConfiguration config) {
-            if (!setupInterfacesForDualSoftApMode())
+            if (result != SUCCESS) {
+                int failureReason = WifiManager.SAP_START_FAILURE_GENERAL;
+                if (result == ERROR_NO_CHANNEL) {
+                    failureReason = WifiManager.SAP_START_FAILURE_NO_CHANNEL;
+                }
+                updateApState(WifiManager.WIFI_AP_STATE_FAILED,
+                              WifiManager.WIFI_AP_STATE_ENABLING,
+                              failureReason);
+                stopSoftAp();
+                mWifiMetrics.incrementSoftApStartResult(false, failureReason);
                 return false;
-
-            WifiConfiguration oweConfig = new WifiConfiguration(config);
-            WifiConfiguration openConfig = new WifiConfiguration(config);
-            String bridgeIfacename = mApInterfaceName;
-
-            mApInterfaceName = mdualApInterfaces[0];
-            oweConfig.oweTransIfaceName =  mdualApInterfaces[1];
-            oweConfig.SSID =  "OWE_" + oweConfig.SSID;
-            oweConfig.SSID =  oweConfig.SSID.length() > 32 ? oweConfig.SSID.substring(0, 32) : oweConfig.SSID;
-            oweConfig.hiddenSSID =  true;
-            int result = startSoftAp(oweConfig);
-            if (result == SUCCESS) {
-                mApInterfaceName = mdualApInterfaces[1];
-                openConfig.oweTransIfaceName =  mdualApInterfaces[0];
-                openConfig.allowedKeyManagement.clear();
-                openConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
-                result = startSoftAp(openConfig);
+            }
+            if (!mWifiNative.setHostapdParams("softap bridge up " +mApInterfaceName)) {
+               Log.e(TAG, "Failed to set interface up " +mApInterfaceName);
+               return false;
             }
 
-            mApInterfaceName = bridgeIfacename;
-
-            return validateDualSapSetupResult(result);
+            return true;
         }
 
         SoftApStateMachine(Looper looper) {
@@ -518,15 +474,8 @@ public class SoftApManager implements ActiveModeManager {
                     case CMD_START:
                         WifiConfiguration config = (WifiConfiguration) message.obj;
                         if (config != null && config.apBand == WifiConfiguration.AP_BAND_DUAL) {
-                            if (!setupForDualBandSoftApMode(config)) {
-                                Log.d(TAG, "Dual band sap start failed");
-                                break;
-                            }
-                            transitionTo(mStartedState);
-                            break;
-                        } else if (config != null && config.getAuthType() == WifiConfiguration.KeyMgmt.OWE) {
-                            if (!setupForOweTransitionSoftApMode(config)) {
-                                Log.d(TAG, "OWE transition sap start failed");
+                            if (!setupForDualSoftApMode(config)) {
+                                Log.d(TAG, "Dual Sap start failed");
                                 break;
                             }
                             transitionTo(mStartedState);

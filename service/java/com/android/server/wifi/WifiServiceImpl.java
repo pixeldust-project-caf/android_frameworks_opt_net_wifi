@@ -3728,8 +3728,7 @@ public class WifiServiceImpl extends BaseWifiService {
         if (apConfig == null)
             apConfig = mWifiApConfigStore.getApConfiguration();
 
-        if (apConfig.apBand == WifiConfiguration.AP_BAND_DUAL
-                || apConfig.allowedKeyManagement.get(WifiConfiguration.KeyMgmt.OWE)) {
+        if (apConfig.apBand == WifiConfiguration.AP_BAND_DUAL) {
             mLog.trace("setDualSapMode uid=%").c(Binder.getCallingUid()).flush();
             mWifiApConfigStore.setDualSapStatus(true);
         } else {

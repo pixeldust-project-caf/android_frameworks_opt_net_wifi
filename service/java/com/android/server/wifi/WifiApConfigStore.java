@@ -473,13 +473,13 @@ public class WifiApConfigStore {
             return false;
         }
 
-        if (authType == KeyMgmt.NONE || authType == KeyMgmt.OWE) {
+        if (authType == KeyMgmt.NONE) {
             // open networks should not have a password
             if (hasPreSharedKey) {
-                Log.d(TAG, "open or OWE softap network should not have a password");
+                Log.d(TAG, "open softap network should not have a password");
                 return false;
             }
-        } else if (authType == KeyMgmt.WPA2_PSK || authType == KeyMgmt.SAE) {
+        } else if (authType == KeyMgmt.WPA2_PSK) {
             // this is a config that should have a password - check that first
             if (!hasPreSharedKey) {
                 Log.d(TAG, "softap network password must be set");
@@ -492,7 +492,7 @@ public class WifiApConfigStore {
             }
         } else {
             // this is not a supported security type
-            Log.d(TAG, "softap configs must either be open or WPA2 PSK or OWE or SAE networks");
+            Log.d(TAG, "softap configs must either be open or WPA2 PSK networks");
             return false;
         }
 
