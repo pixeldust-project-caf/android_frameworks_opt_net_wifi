@@ -239,7 +239,7 @@ public class WifiInjector {
         mWifiKeyStore = new WifiKeyStore(mKeyStore);
         mWifiConfigStore = new WifiConfigStore(
                 mContext, clientModeImplLooper, mClock, mWifiMetrics,
-                WifiConfigStore.createSharedFile());
+                WifiConfigStore.createSharedFile(UserManager.get(mContext)));
         SubscriptionManager subscriptionManager =
                 mContext.getSystemService(SubscriptionManager.class);
         // Config Manager
@@ -519,6 +519,11 @@ public class WifiInjector {
 
     public DppManager getDppManager() {
         return mDppManager;
+    }
+
+    public boolean getReport8SS()
+    {
+        return (mContext.getResources().getBoolean(com.android.internal.R.bool.config_wifi_report_he_ready));
     }
 
     /** Gets IWificond without caching. */
