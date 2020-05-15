@@ -181,6 +181,7 @@ public class HalDeviceManager {
      */
     public void stop() {
         stopWifi();
+        mWifi = null;
     }
 
     /**
@@ -1295,8 +1296,10 @@ public class HalDeviceManager {
         @Override
         public void onFailure(WifiStatus status) throws RemoteException {
             mEventHandler.post(() -> {
-                Log.e(TAG, "IWifiEventCallback.onFailure: " + statusString(status));
-                teardownInternal();
+                synchronized (mLock) {
+                    Log.e(TAG, "IWifiEventCallback.onFailure: " + statusString(status));
+                    teardownInternal();
+                }
             });
             // No need to do anything else: listeners may (will) re-start Wi-Fi
         }
@@ -1722,9 +1725,11 @@ public class HalDeviceManager {
             int requestedIfaceType, WifiIfaceInfo[][] currentIfaces, int numNecessaryInterfaces) {
         // rule 0: check for any low priority interfaces
         int numAvailableLowPriorityInterfaces = 0;
-        for (InterfaceCacheEntry entry : mInterfaceInfoCache.values()) {
-            if (entry.type == existingIfaceType && entry.isLowPriority) {
-                numAvailableLowPriorityInterfaces++;
+        synchronized (mLock) {
+            for (InterfaceCacheEntry entry : mInterfaceInfoCache.values()) {
+                if (entry.type == existingIfaceType && entry.isLowPriority) {
+                    numAvailableLowPriorityInterfaces++;
+                }
             }
         }
         if (numAvailableLowPriorityInterfaces >= numNecessaryInterfaces) {
@@ -1779,8 +1784,10 @@ public class HalDeviceManager {
         LongSparseArray<WifiIfaceInfo> orderedListLowPriority = new LongSparseArray<>();
         LongSparseArray<WifiIfaceInfo> orderedList = new LongSparseArray<>();
         for (WifiIfaceInfo info : interfaces) {
-            InterfaceCacheEntry cacheEntry = mInterfaceInfoCache.get(
-                    Pair.create(info.name, getType(info.iface)));
+            InterfaceCacheEntry cacheEntry;
+            synchronized (mLock) {
+                cacheEntry = mInterfaceInfoCache.get(Pair.create(info.name, getType(info.iface)));
+            }
             if (cacheEntry == null) {
                 Log.e(TAG,
                         "selectInterfacesToDelete: can't find cache entry with name=" + info.name);
