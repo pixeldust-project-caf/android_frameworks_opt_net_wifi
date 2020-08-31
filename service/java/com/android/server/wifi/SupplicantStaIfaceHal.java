@@ -858,9 +858,6 @@ public class SupplicantStaIfaceHal {
                 Log.i(TAG, "Ignoring stale death recipient notification");
                 return;
             }
-            for (String ifaceName : mISupplicantStaIfaces.keySet()) {
-                mWifiMonitor.broadcastSupplicantDisconnectionEvent(ifaceName);
-            }
             clearState();
             if (mDeathEventHandler != null) {
                 mDeathEventHandler.onDeath();
@@ -1383,6 +1380,20 @@ public class SupplicantStaIfaceHal {
             mCurrentNetworkRemoteHandles.remove(ifaceName);
             mCurrentNetworkLocalConfigs.remove(ifaceName);
             return true;
+        }
+    }
+
+    /**
+     * Disable the current network in supplicant
+     *
+     * @param ifaceName Name of the interface.
+     */
+    public boolean disableCurrentNetwork(@NonNull String ifaceName) {
+        synchronized (mLock) {
+            SupplicantStaNetworkHal networkHandle =
+                    checkSupplicantStaNetworkAndLogFailure(ifaceName, "disableCurrentNetwork");
+            if (networkHandle == null) return false;
+            return networkHandle.disable();
         }
     }
 
