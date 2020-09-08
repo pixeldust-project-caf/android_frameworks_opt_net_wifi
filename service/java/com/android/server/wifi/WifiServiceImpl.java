@@ -4157,7 +4157,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppAddBootstrapQrCode(String uri) {
-        return mClientModeImpl.syncDppAddBootstrapQrCode(mClientModeImplChannel, uri);
+        return mClientModeImpl.syncDppAddBootstrapQrCode(uri);
     }
 
     /**
@@ -4169,7 +4169,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppBootstrapGenerate(WifiDppConfig config) {
-        return mClientModeImpl.syncDppBootstrapGenerate(mClientModeImplChannel, config);
+        return mClientModeImpl.syncDppBootstrapGenerate(config);
     }
 
     /**
@@ -4181,7 +4181,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public String dppGetUri(int bootstrap_id) {
-        return mClientModeImpl.syncDppGetUri(mClientModeImplChannel, bootstrap_id);
+        return mClientModeImpl.syncDppGetUri(bootstrap_id);
     }
 
     /**
@@ -4193,7 +4193,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppBootstrapRemove(int bootstrap_id) {
-        return mClientModeImpl.syncDppBootstrapRemove(mClientModeImplChannel, bootstrap_id);
+        return mClientModeImpl.syncDppBootstrapRemove(bootstrap_id);
     }
 
     /**
@@ -4210,8 +4210,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppListen(String frequency, int dpp_role, boolean qr_mutual, boolean netrole_ap) {
-        return mClientModeImpl.syncDppListen(mClientModeImplChannel, frequency, dpp_role,
-                                               qr_mutual, netrole_ap);
+        return mClientModeImpl.syncDppListen(frequency, dpp_role, qr_mutual, netrole_ap);
     }
 
     /**
@@ -4219,7 +4218,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public void dppStopListen() {
-        mClientModeImpl.dppStopListen(mClientModeImplChannel);
+        mClientModeImpl.dppStopListen();
     }
 
     /**
@@ -4233,8 +4232,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppConfiguratorAdd(String curve, String key, int expiry) {
-        return mClientModeImpl.syncDppConfiguratorAdd(
-            mClientModeImplChannel, curve, key, expiry);
+        return mClientModeImpl.syncDppConfiguratorAdd(curve, key, expiry);
     }
 
     /**
@@ -4246,7 +4244,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppConfiguratorRemove(int config_id) {
-        return mClientModeImpl.syncDppConfiguratorRemove(mClientModeImplChannel, config_id);
+        return mClientModeImpl.syncDppConfiguratorRemove(config_id);
     }
 
     /**
@@ -4258,7 +4256,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int  dppStartAuth(WifiDppConfig config) {
-        return mClientModeImpl.syncDppStartAuth(mClientModeImplChannel, config);
+        return mClientModeImpl.syncDppStartAuth(config);
     }
 
     /**
@@ -4269,7 +4267,7 @@ public class WifiServiceImpl extends BaseWifiService {
      * @return: KEY string else -1 on failure
      */
     public String dppConfiguratorGetKey(int id) {
-        return mClientModeImpl.syncDppConfiguratorGetKey(mClientModeImplChannel, id);
+        return mClientModeImpl.syncDppConfiguratorGetKey(id);
     }
 
     private void setDualSapMode(SoftApConfiguration apConfig) {
@@ -4734,6 +4732,6 @@ public class WifiServiceImpl extends BaseWifiService {
     @Override
     public String doDriverCmd(String command)
     {
-        return mClientModeImpl.doDriverCmd(mClientModeImplChannel, command);
+        return mClientModeImpl.doDriverCmd(command);
     }
 }

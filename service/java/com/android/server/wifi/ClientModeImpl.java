@@ -1001,10 +1001,6 @@ public class ClientModeImpl extends StateMachine {
 	mSentHLPs = false;
     }
 
-    public void setWifiDiagnostics(BaseWifiDiagnostics WifiDiagnostics) {
-        mWifiDiagnostics = WifiDiagnostics;
-    }
-
     public void setTrafficPoller(WifiTrafficPoller trafficPoller) {
         mTrafficPoller = trafficPoller;
         if (mTrafficPoller != null) {
@@ -3153,12 +3149,12 @@ public class ClientModeImpl extends StateMachine {
                 case CMD_DPP_CONF_ADD:
                 case CMD_DPP_CONF_REMOVE:
                 case CMD_DPP_AUTH_INIT:
-                    replyToMessage(message, message.what, FAILURE);
+                    mWifiP2pConnection.replyToMessage(message, message.what, FAILURE);
                     break;
                 case CMD_DPP_GET_URI:
                 case CMD_DPP_CONFIGURATOR_GET_KEY:
                 case CMD_DO_DRIVER_CMD:
-                    replyToMessage(message, message.what, "Supplicant Not Started!!");
+                    mWifiP2pConnection.replyToMessage(message, message.what, "Supplicant Not Started!!");
                     break;
                 case CMD_DPP_LISTEN_STOP:
                     mMessageHandlingStatus = MESSAGE_HANDLING_STATUS_DISCARD;
@@ -3584,7 +3580,6 @@ public class ClientModeImpl extends StateMachine {
                                 // static IP address has changed.
                                 log("Reconfiguring IP on connection");
                                 mWifiNative.disconnect(mInterfaceName);
-                                transitionTo(mDisconnectingState);
                                 // reconnect to the same network
                                 if (mWifiNative.reconnect(mInterfaceName)) {
                                     log("Reconnecting after IP reconfiguration");
@@ -3700,19 +3695,19 @@ public class ClientModeImpl extends StateMachine {
                 }
                 case CMD_DPP_GENERATE_BOOTSTRAP:
                     int id = mWifiNative.dppBootstrapGenerate(mInterfaceName, (WifiDppConfig)message.obj);
-                    replyToMessage(message, message.what, id);
+                    mWifiP2pConnection.replyToMessage(message, message.what, id);
                     break;
                 case CMD_DPP_ADD_BOOTSTRAP_QRCODE:
                     int qrcode_hdl = mWifiNative.dppAddBootstrapQrCode(mInterfaceName, (String) message.obj);
-                    replyToMessage(message, message.what, qrcode_hdl);
+                    mWifiP2pConnection.replyToMessage(message, message.what, qrcode_hdl);
                     break;
                 case CMD_DPP_REMOVE_BOOTSTRAP:
                     int bootstrap_status = mWifiNative.dppBootstrapRemove(mInterfaceName, message.arg1);
-                    replyToMessage(message, message.what, bootstrap_status);
+                    mWifiP2pConnection.replyToMessage(message, message.what, bootstrap_status);
                     break;
                 case CMD_DPP_GET_URI:
                     String uri = mWifiNative.dppGetUri(mInterfaceName, message.arg1);
-                    replyToMessage(message, message.what, uri);
+                    mWifiP2pConnection.replyToMessage(message, message.what, uri);
                     break;
                 case CMD_DPP_LISTEN_START:
                     int listen_status = mWifiNative.dppListen(mInterfaceName,
@@ -3720,7 +3715,7 @@ public class ClientModeImpl extends StateMachine {
                             ((Bundle) message.obj).getInt("dppRole"),
                             ((Bundle) message.obj).getBoolean("mutual"),
                             ((Bundle) message.obj).getBoolean("netRoleAp"));
-                    replyToMessage(message, message.what, listen_status);
+                    mWifiP2pConnection.replyToMessage(message, message.what, listen_status);
                     break;
                 case CMD_DPP_LISTEN_STOP:
                     mWifiNative.dppStopListen(mInterfaceName);
@@ -3730,19 +3725,19 @@ public class ClientModeImpl extends StateMachine {
                             ((Bundle) message.obj).getString("curve"),
                             ((Bundle) message.obj).getString("key"),
                              message.arg1);
-                    replyToMessage(message, message.what, cfg_add_status);
+                    mWifiP2pConnection.replyToMessage(message, message.what, cfg_add_status);
                     break;
                 case CMD_DPP_CONF_REMOVE:
                     int cfg_remove_status = mWifiNative.dppConfiguratorRemove(mInterfaceName, message.arg1);
-                    replyToMessage(message, message.what, cfg_remove_status);
+                    mWifiP2pConnection.replyToMessage(message, message.what, cfg_remove_status);
                     break;
                 case CMD_DPP_AUTH_INIT:
                     int auth_init_status = mWifiNative.dppStartAuth(mInterfaceName, (WifiDppConfig)message.obj);
-                    replyToMessage(message, message.what, auth_init_status);
+                    mWifiP2pConnection.replyToMessage(message, message.what, auth_init_status);
                     break;
                 case CMD_DPP_CONFIGURATOR_GET_KEY:
                     String key = mWifiNative.dppConfiguratorGetKey(mInterfaceName, (int) message.obj);
-                    replyToMessage(message, message.what, key);
+                    mWifiP2pConnection.replyToMessage(message, message.what, key);
                     break;
                 case WifiMonitor.DPP_EVENT:
                     Log.d(TAG, "DPP Event received. Type = " + message.arg1);
@@ -3750,7 +3745,7 @@ public class ClientModeImpl extends StateMachine {
                     break;
                 case CMD_DO_DRIVER_CMD:
                     String reply = mWifiNative.doDriverCmd(mInterfaceName, (String) message.obj);
-                    replyToMessage(message, message.what, reply);
+                    mWifiP2pConnection.replyToMessage(message, message.what, reply);
                     break;
                 default: {
                     handleStatus = NOT_HANDLED;
@@ -5628,73 +5623,55 @@ public class ClientModeImpl extends StateMachine {
     /**
      * Add the DPP bootstrap info obtained from QR code.
      *
-     * @param channel Channel for communicating with the state machine
      * @param uri:The URI obtained from the QR code.
      *
      * @return: Handle to strored info else -1 on failure
      */
-    public int syncDppAddBootstrapQrCode(AsyncChannel channel, String uri) {
-        Message resultMsg = channel.sendMessageSynchronously(
-                CMD_DPP_ADD_BOOTSTRAP_QRCODE, 0, 0, uri);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+    public int syncDppAddBootstrapQrCode(String uri) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppAddBootstrapQrCode(mInterfaceName, uri), -1);
     }
 
     /**
      * Generate bootstrap URI based on the passed arguments
      *
-     * @param channel Channel for communicating with the state machine
      * @param config – bootstrap generate config
      *
      * @return: Handle to strored URI info else -1 on failure
      */
-    public int syncDppBootstrapGenerate(AsyncChannel channel,
-        WifiDppConfig config) {
-        Message resultMsg = channel.sendMessageSynchronously(
-            CMD_DPP_GENERATE_BOOTSTRAP, 0, 0, config);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+    public int syncDppBootstrapGenerate(WifiDppConfig config) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppBootstrapGenerate(mInterfaceName, config), -1);
     }
 
     /**
      * Get bootstrap URI based on bootstrap ID
      *
-     * @param channel Channel for communicating with the state machine
      * @param bootstrap_id: Stored bootstrap ID
      *
      * @return: URI string else -1 on failure
      */
-    public String syncDppGetUri(AsyncChannel channel, int bootstrap_id) {
-        Message resultMsg = channel.sendMessageSynchronously(
-            CMD_DPP_GET_URI, bootstrap_id);
-        String result = (String)resultMsg.obj;
-        resultMsg.recycle();
-        return result;
+    public String syncDppGetUri(int bootstrap_id) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppGetUri(mInterfaceName, bootstrap_id), "-1");
     }
 
     /**
      * Remove bootstrap URI based on bootstrap ID.
      *
-     * @param channel Channel for communicating with the state machine
      * @param bootstrap_id: Stored bootstrap ID
      *
      * @return: 0 – Success or -1 on failure
      */
-    public int syncDppBootstrapRemove(AsyncChannel channel, int bootstrap_id) {
-        Message resultMsg = channel.sendMessageSynchronously(
-            CMD_DPP_REMOVE_BOOTSTRAP, bootstrap_id);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+    public int syncDppBootstrapRemove(int bootstrap_id) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppBootstrapRemove(mInterfaceName, bootstrap_id), -1);
     }
 
     /**
      * start listen on the channel specified waiting to receive
      * the DPP Authentication request.
      *
-     * @param channel Channel for communicating with the state machine
      * @param frequency: DPP listen frequency
      * @param dpp_role: Configurator/Enrollee role
      * @param qr_mutual: Mutual authentication required
@@ -5703,94 +5680,68 @@ public class ClientModeImpl extends StateMachine {
      * @return: Returns 0 if a DPP-listen work is successfully
      *  queued and -1 on failure.
      */
-    public int syncDppListen(AsyncChannel channel, String frequency, int dpp_role,
+    public int syncDppListen(String frequency, int dpp_role,
                              boolean qr_mutual, boolean netrole_ap) {
-        Bundle bundle = new Bundle();
-        bundle.putString("freq", frequency);
-        bundle.putInt("dppRole", dpp_role);
-        bundle.putBoolean("mutual", qr_mutual);
-        bundle.putBoolean("netRoleAp", netrole_ap);
-        Message resultMsg = channel.sendMessageSynchronously(CMD_DPP_LISTEN_START,
-                            0, 0, bundle);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppListen(mInterfaceName, frequency, dpp_role,
+                                        qr_mutual, netrole_ap), -1);
     }
 
     /**
      * stop ongoing dpp listen.
      */
-    public void dppStopListen(AsyncChannel channel) {
+    public void dppStopListen() {
         sendMessage(CMD_DPP_LISTEN_STOP);
     }
 
     /**
      * Adds the DPP configurator
      *
-     * @param channel Channel for communicating with the state machine
      * @param curve curve used for dpp encryption
      * @param key private key
      * @param expiry timeout in seconds
      *
      * @return: Identifier of the added configurator or -1 on failure
      */
-    public int syncDppConfiguratorAdd(AsyncChannel channel,
-               String curve, String key, int expiry) {
-        Bundle bundle = new Bundle();
-        bundle.putString("curve", curve);
-        bundle.putString("key", key);
-        Message resultMsg = channel.sendMessageSynchronously(CMD_DPP_CONF_ADD,
-                            expiry, 0, bundle);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+    public int syncDppConfiguratorAdd(String curve, String key, int expiry) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppConfiguratorAdd(mInterfaceName, curve, key, expiry), -1);
     }
 
     /**
      * Remove the added configurator through dppConfiguratorAdd.
      *
-     * @param channel Channel for communicating with the state machine
      * @param config_id: DPP Configurator ID
      *
      * @return: Handle to strored info else -1 on failure
      */
-    public int syncDppConfiguratorRemove(AsyncChannel channel, int config_id) {
-        Message resultMsg = channel.sendMessageSynchronously(CMD_DPP_CONF_REMOVE, config_id);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+    public int syncDppConfiguratorRemove(int config_id) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppConfiguratorRemove(mInterfaceName, config_id), -1);
     }
 
     /**
      * Start DPP authentication and provisioning with the specified peer
      *
-     * @param channel Channel for communicating with the state machine
      * @param config – dpp auth init config
      *
      * @return: 0 if DPP Authentication request was transmitted and -1 on failure
      */
-    public int  syncDppStartAuth(AsyncChannel channel, WifiDppConfig config) {
-        Message resultMsg = channel.sendMessageSynchronously(CMD_DPP_AUTH_INIT,
-                            0, 0, config);
-        int result = resultMsg.arg1;
-        resultMsg.recycle();
-        return result;
+    public int  syncDppStartAuth(WifiDppConfig config) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppStartAuth(mInterfaceName, config), -1);
     }
 
     /**
      *Retrieve Private key to be used for configurator
      *
-     * @param channel Channel for communicating with the state machine
      * @param id: id of configurator obj
      *
      * @return: KEY string else -1 on failure
      */
-    public String syncDppConfiguratorGetKey(AsyncChannel channel, int id) {
-        Message resultMsg = channel.sendMessageSynchronously(
-            CMD_DPP_CONFIGURATOR_GET_KEY, 0, 0, id);
-        String result = (String)resultMsg.obj;
-        resultMsg.recycle();
-        return result;
+    public String syncDppConfiguratorGetKey(int id) {
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.dppConfiguratorGetKey(mInterfaceName, id), "-1");
     }
 
     /**
@@ -6213,11 +6164,9 @@ public class ClientModeImpl extends StateMachine {
      * Run Driver Command
      * @param : Command string
      */
-    public String doDriverCmd(AsyncChannel channel, String command)
+    public String doDriverCmd(String command)
     {
-        Message resultMsg = channel.sendMessageSynchronously(CMD_DO_DRIVER_CMD, command);
-        String result = (String)resultMsg.obj;
-        resultMsg.recycle();
-        return result;
+        return mWifiThreadRunner.call(
+            () -> mWifiNative.doDriverCmd(mInterfaceName, command), null);
     }
 }

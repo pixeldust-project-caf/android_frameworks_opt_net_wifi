@@ -420,8 +420,6 @@ public class WifiInjector {
                 new WakeupEvaluator(mScoringParams), wakeupOnboarding, mWifiConfigManager,
                 mWifiConfigStore, mWifiNetworkSuggestionsManager, mWifiMetrics.getWakeupMetrics(),
                 this, mFrameworkFacade, mClock);
-        if (mClientModeImpl != null)
-            mClientModeImpl.setWifiDiagnostics(mWifiDiagnostics);
         mLockManager = new WifiLockManager(mContext, mBatteryStats, mActiveModeWarden,
                 mFrameworkFacade, wifiHandler, mWifiNative, mClock, mWifiMetrics);
         mSelfRecovery = new SelfRecovery(mContext, mActiveModeWarden, mClock);

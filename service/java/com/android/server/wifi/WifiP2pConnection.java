@@ -171,6 +171,20 @@ public class WifiP2pConnection {
         mReplyChannel.replyToMessage(msg, dstMsg);
     }
 
+    public void replyToMessage(Message msg, int what, int arg1) {
+        if (msg.replyTo == null) return;
+        Message dstMsg = obtainMessageWithWhatAndArg2(msg, what);
+        dstMsg.arg1 = arg1;
+        mReplyChannel.replyToMessage(msg, dstMsg);
+    }
+
+    public  void replyToMessage(Message msg, int what, Object obj) {
+        if (msg.replyTo == null) return;
+        Message dstMsg = obtainMessageWithWhatAndArg2(msg, what);
+        dstMsg.obj = obj;
+        mReplyChannel.replyToMessage(msg, dstMsg);
+    }
+
     /**
      * arg2 on the source message has a unique id that needs to be retained in replies
      * to match the request
