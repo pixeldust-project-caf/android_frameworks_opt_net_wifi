@@ -24,6 +24,7 @@ import android.net.wifi.IWifiConnectedNetworkScorer;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiAnnotations;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiDppConfig;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.hotspot2.IProvisioningCallback;
@@ -218,4 +219,53 @@ public class DefaultClientModeManager implements ClientModeManager {
 
     @Override
     public void sendMessageToClientModeImpl(Message msg) { }
+
+    @Override
+    public void setTrafficPoller(WifiTrafficPoller trafficPoller) {}
+    @Override
+    public String getCapabilities(String capaType) {
+        return null;
+    }
+    @Override
+    public int syncDppAddBootstrapQrCode(String uri) {
+        return -1;
+    }
+    @Override
+    public int syncDppBootstrapGenerate(WifiDppConfig config) {
+        return -1;
+    }
+    @Override
+    public String syncDppGetUri(int bootstrap_id) {
+        return null;
+    }
+    @Override
+    public int syncDppBootstrapRemove(int bootstrap_id) {
+        return -1;
+    }
+    @Override
+    public int syncDppListen(String frequency, int dpp_role, boolean qr_mutual, boolean netrole_ap) {
+        return -1;
+    }
+    @Override
+    public void dppStopListen() {}
+    @Override
+    public int syncDppConfiguratorAdd(String curve, String key, int expiry) {
+        return -1;
+    }
+    @Override
+    public int syncDppConfiguratorRemove(int config_id) {
+        return -1;
+    }
+    @Override
+    public int syncDppStartAuth(WifiDppConfig config) {
+        return -1;
+    }
+    @Override
+    public String syncDppConfiguratorGetKey(int id) {
+        return null;
+    }
+    @Override
+    public String doDriverCmd(String command) {
+        return null;
+    }
 }

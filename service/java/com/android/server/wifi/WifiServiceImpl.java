@@ -302,7 +302,8 @@ public class WifiServiceImpl extends BaseWifiService {
         mUserManager = mWifiInjector.getUserManager();
         mCountryCode = mWifiInjector.getWifiCountryCode();
         mActiveModeWarden = mWifiInjector.getActiveModeWarden();
-        mClientModeImpl.setTrafficPoller(mWifiTrafficPoller);
+        mActiveModeWarden.getPrimaryClientModeManager().setTrafficPoller(
+            mWifiTrafficPoller);
         mScanRequestProxy = mWifiInjector.getScanRequestProxy();
         mSettingsStore = mWifiInjector.getWifiSettingsStore();
         mPowerManager = mContext.getSystemService(PowerManager.class);
@@ -3041,7 +3042,7 @@ public class WifiServiceImpl extends BaseWifiService {
     }
 
     public String getCapabilities(String capaType) {
-        return mClientModeImpl.getCapabilities(capaType);
+        return mActiveModeWarden.getPrimaryClientModeManager().getCapabilities(capaType);
     }
 
      /**
@@ -4157,7 +4158,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppAddBootstrapQrCode(String uri) {
-        return mClientModeImpl.syncDppAddBootstrapQrCode(uri);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppAddBootstrapQrCode(uri);
     }
 
     /**
@@ -4169,7 +4170,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppBootstrapGenerate(WifiDppConfig config) {
-        return mClientModeImpl.syncDppBootstrapGenerate(config);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppBootstrapGenerate(config);
     }
 
     /**
@@ -4181,7 +4182,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public String dppGetUri(int bootstrap_id) {
-        return mClientModeImpl.syncDppGetUri(bootstrap_id);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppGetUri(bootstrap_id);
     }
 
     /**
@@ -4193,7 +4194,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppBootstrapRemove(int bootstrap_id) {
-        return mClientModeImpl.syncDppBootstrapRemove(bootstrap_id);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppBootstrapRemove(bootstrap_id);
     }
 
     /**
@@ -4210,7 +4211,8 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppListen(String frequency, int dpp_role, boolean qr_mutual, boolean netrole_ap) {
-        return mClientModeImpl.syncDppListen(frequency, dpp_role, qr_mutual, netrole_ap);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppListen(
+            frequency, dpp_role, qr_mutual, netrole_ap);
     }
 
     /**
@@ -4218,7 +4220,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public void dppStopListen() {
-        mClientModeImpl.dppStopListen();
+        mActiveModeWarden.getPrimaryClientModeManager().dppStopListen();
     }
 
     /**
@@ -4232,7 +4234,8 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppConfiguratorAdd(String curve, String key, int expiry) {
-        return mClientModeImpl.syncDppConfiguratorAdd(curve, key, expiry);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppConfiguratorAdd(
+            curve, key, expiry);
     }
 
     /**
@@ -4244,7 +4247,8 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int dppConfiguratorRemove(int config_id) {
-        return mClientModeImpl.syncDppConfiguratorRemove(config_id);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppConfiguratorRemove(
+            config_id);
     }
 
     /**
@@ -4256,7 +4260,7 @@ public class WifiServiceImpl extends BaseWifiService {
      */
     @Override
     public int  dppStartAuth(WifiDppConfig config) {
-        return mClientModeImpl.syncDppStartAuth(config);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppStartAuth(config);
     }
 
     /**
@@ -4267,7 +4271,7 @@ public class WifiServiceImpl extends BaseWifiService {
      * @return: KEY string else -1 on failure
      */
     public String dppConfiguratorGetKey(int id) {
-        return mClientModeImpl.syncDppConfiguratorGetKey(id);
+        return mActiveModeWarden.getPrimaryClientModeManager().syncDppConfiguratorGetKey(id);
     }
 
     private void setDualSapMode(SoftApConfiguration apConfig) {
@@ -4292,7 +4296,8 @@ public class WifiServiceImpl extends BaseWifiService {
         if(!isWifiCoverageExtendFeatureEnabled())
             return false;
 
-        WifiConfiguration currentStaConfig = mClientModeImpl.getCurrentWifiConfiguration();
+        WifiConfiguration currentStaConfig =
+            mActiveModeWarden.getPrimaryClientModeManager().getCurrentWifiConfiguration();
 
         if (currentStaConfig != null && currentStaConfig.shareThisAp) {
             int authType = currentStaConfig.getAuthType();
@@ -4305,7 +4310,8 @@ public class WifiServiceImpl extends BaseWifiService {
     }
 
     private void startSoftApInRepeaterMode(int mode, SoftApConfiguration apConfig) {
-        WifiInfo wifiInfo = mClientModeImpl.getWifiInfo();
+        WifiInfo wifiInfo =
+                    mActiveModeWarden.getPrimaryClientModeManager().syncRequestConnectionInfo();
         WifiConfigManager wifiConfigManager = mWifiInjector.getWifiConfigManager();
         WifiConfiguration currentStaConfig = wifiConfigManager.getConfiguredNetworkWithPassword(wifiInfo.getNetworkId());
         SoftApConfiguration.Builder softApConfigBuilder = new SoftApConfiguration.Builder(
@@ -4732,6 +4738,6 @@ public class WifiServiceImpl extends BaseWifiService {
     @Override
     public String doDriverCmd(String command)
     {
-        return mClientModeImpl.doDriverCmd(command);
+        return mActiveModeWarden.getPrimaryClientModeManager().doDriverCmd(command);
     }
 }

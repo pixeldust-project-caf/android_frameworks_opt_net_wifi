@@ -25,6 +25,7 @@ import android.net.wifi.IWifiConnectedNetworkScorer;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiAnnotations;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiDppConfig;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.hotspot2.IProvisioningCallback;
 import android.net.wifi.hotspot2.OsuProvider;
@@ -115,4 +116,18 @@ public interface ClientModeManager extends ActiveModeManager {
 
     /** Send a {@link Message} to ClientModeImpl's StateMachine. */
     void sendMessageToClientModeImpl(Message msg);
+
+    void setTrafficPoller(WifiTrafficPoller trafficPoller);
+    String getCapabilities(String capaType);
+    int syncDppAddBootstrapQrCode(String uri);
+    int syncDppBootstrapGenerate(WifiDppConfig config);
+    String syncDppGetUri(int bootstrap_id);
+    int syncDppBootstrapRemove(int bootstrap_id);
+    int syncDppListen(String frequency, int dpp_role, boolean qr_mutual, boolean netrole_ap);
+    void dppStopListen();
+    int syncDppConfiguratorAdd(String curve, String key, int expiry);
+    int syncDppConfiguratorRemove(int config_id);
+    int syncDppStartAuth(WifiDppConfig config);
+    String syncDppConfiguratorGetKey(int id);
+    String doDriverCmd(String command);
 }

@@ -36,6 +36,7 @@ import android.net.wifi.IWifiConnectedNetworkScorer;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiAnnotations;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiDppConfig;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.net.wifi.hotspot2.IProvisioningCallback;
@@ -948,5 +949,58 @@ public class ConcreteClientModeManager implements ClientModeManager {
     @Override
     public void sendMessageToClientModeImpl(Message msg) {
         mClientModeImpl.sendMessage(msg);
+    }
+
+    @Override
+    public void setTrafficPoller(WifiTrafficPoller trafficPoller) {
+        mClientModeImpl.setTrafficPoller(trafficPoller);
+    }
+    @Override
+    public String getCapabilities(String capaType) {
+        return mClientModeImpl.getCapabilities(capaType);
+    }
+    @Override
+    public int syncDppAddBootstrapQrCode(String uri) {
+        return mClientModeImpl.syncDppAddBootstrapQrCode(uri);
+    }
+    @Override
+    public int syncDppBootstrapGenerate(WifiDppConfig config) {
+        return mClientModeImpl.syncDppBootstrapGenerate(config);
+    }
+    @Override
+    public String syncDppGetUri(int bootstrap_id) {
+        return mClientModeImpl.syncDppGetUri(bootstrap_id);
+    }
+    @Override
+    public int syncDppBootstrapRemove(int bootstrap_id) {
+        return mClientModeImpl.syncDppBootstrapRemove(bootstrap_id);
+    }
+    @Override
+    public int syncDppListen(String frequency, int dpp_role, boolean qr_mutual, boolean netrole_ap) {
+        return mClientModeImpl.syncDppListen(frequency, dpp_role, qr_mutual, netrole_ap);
+    }
+    @Override
+    public void dppStopListen() {
+        mClientModeImpl.dppStopListen();
+    }
+    @Override
+    public int syncDppConfiguratorAdd(String curve, String key, int expiry) {
+        return mClientModeImpl.syncDppConfiguratorAdd(curve, key, expiry);
+    }
+    @Override
+    public int syncDppConfiguratorRemove(int config_id) {
+        return mClientModeImpl.syncDppConfiguratorRemove(config_id);
+    }
+    @Override
+    public int syncDppStartAuth(WifiDppConfig config) {
+        return mClientModeImpl.syncDppStartAuth(config);
+    }
+    @Override
+    public String syncDppConfiguratorGetKey(int id) {
+        return mClientModeImpl.syncDppConfiguratorGetKey(id);
+    }
+    @Override
+    public String doDriverCmd(String command) {
+        return mClientModeImpl.doDriverCmd(command);
     }
 }
