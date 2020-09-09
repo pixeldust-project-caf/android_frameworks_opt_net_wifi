@@ -550,6 +550,10 @@ public class WifiInjector {
         return mClock;
     }
 
+    public PropertyService getPropertyService() {
+        return mPropertyService;
+    }
+
     public WifiBackupRestore getWifiBackupRestore() {
         return mWifiBackupRestore;
     }
