@@ -400,10 +400,10 @@ abstract class SupplicantStaIfaceCallbackImpl extends ISupplicantStaIfaceCallbac
         }
     }
 
-    public void updateStateIsFourway(boolean stateIsFourway) {
+    public void updateStateBeforeDisconnect(int stateBeforeDisconnect) {
         synchronized (mLock) {
-            mStaIfaceHal.logCallback("updateStateIsFourway");
-            mStateIsFourway = stateIsFourway;
+            mStaIfaceHal.logCallback("updateStateBeforeDisconnect");
+            mStateBeforeDisconnect = stateBeforeDisconnect;
         }
     }
 }
