@@ -320,11 +320,8 @@ public class WifiConfigManagerTest {
         List<WifiConfiguration> retrievedNetworks =
                 mWifiConfigManager.getConfiguredNetworksWithPasswords();
 
-        // Verify that we have attempted to generate the MAC address twice (1 retry)
-        verify(mMacAddressUtil, times(2)).calculatePersistentMacForConfiguration(any(), any());
-        assertEquals(1, retrievedNetworks.size());
-
         // Verify that despite KeyStore returning null, we are still getting a valid MAC address.
+        assertEquals(1, retrievedNetworks.size());
         assertNotEquals(WifiInfo.DEFAULT_MAC_ADDRESS,
                 retrievedNetworks.get(0).getRandomizedMacAddress().toString());
     }
