@@ -1535,26 +1535,27 @@ public class HostapdHal {
 
     private class HostapdVendorIfaceHalCallback extends IHostapdVendorIfaceCallback.Stub {
         private SoftApListener mSoftApListener;
+        private String mIfaceName;
 
         HostapdVendorIfaceHalCallback(@NonNull String ifaceName, SoftApListener listener) {
+           mIfaceName = ifaceName;
            mSoftApListener = listener;
         }
 
         @Override
         public void onStaConnected(byte[/* 6 */] bssid) {
             if (bssid == null) return;
-            NativeWifiClient client = new NativeWifiClient(MacAddress.fromBytes(bssid));
-            Log.d(TAG, "Client " + client.getMacAddress() + " connected.");
-            // SBL TODO replace this placeholder with a bug
-            mSoftApListener.onConnectedClientsChanged("TEMP_STRING_NAME", client.getMacAddress(), true);
+            MacAddress macAddress = MacAddress.fromBytes(bssid);
+            Log.d(TAG, "Client " + macAddress + " connected.");
+            mSoftApListener.onConnectedClientsChanged(mIfaceName, macAddress, true);
         }
 
         @Override
         public void onStaDisconnected(byte[/* 6 */] bssid) {
             if (bssid == null) return;
-            NativeWifiClient client = new NativeWifiClient(MacAddress.fromBytes(bssid));
-            Log.d(TAG, "Client " + client.getMacAddress() + " disconnected.");
-            mSoftApListener.onConnectedClientsChanged("TEMP_STRING_NAME", client.getMacAddress(), false);
+            MacAddress macAddress = MacAddress.fromBytes(bssid);
+            Log.d(TAG, "Client " + macAddress + " disconnected.");
+            mSoftApListener.onConnectedClientsChanged(mIfaceName, macAddress, false);
         }
     }
 
@@ -1577,25 +1578,27 @@ public class HostapdHal {
     private class HostapdVendorIfaceHalCallbackV1_1 extends
             vendor.qti.hardware.wifi.hostapd.V1_1.IHostapdVendorIfaceCallback.Stub {
         private SoftApListener mSoftApListener;
+        private String mIfaceName;
 
         HostapdVendorIfaceHalCallbackV1_1(@NonNull String ifaceName, SoftApListener listener) {
+           mIfaceName = ifaceName;
            mSoftApListener = listener;
         }
 
         @Override
         public void onStaConnected(byte[/* 6 */] bssid) {
             if (bssid == null) return;
-            NativeWifiClient client = new NativeWifiClient(MacAddress.fromBytes(bssid));
-            Log.d(TAG, "Client " + client.getMacAddress() + " connected.");
-            mSoftApListener.onConnectedClientsChanged("TEMP_STRING_NAME", client.getMacAddress(), true);
+            MacAddress macAddress = MacAddress.fromBytes(bssid);
+            Log.d(TAG, "Client " + macAddress + " connected.");
+            mSoftApListener.onConnectedClientsChanged(mIfaceName, macAddress, true);
         }
 
         @Override
         public void onStaDisconnected(byte[/* 6 */] bssid) {
             if (bssid == null) return;
-            NativeWifiClient client = new NativeWifiClient(MacAddress.fromBytes(bssid));
-            Log.d(TAG, "Client " + client.getMacAddress() + " disconnected.");
-            mSoftApListener.onConnectedClientsChanged("TEMP_STRING_NAME", client.getMacAddress(), false);
+            MacAddress macAddress = MacAddress.fromBytes(bssid);
+            Log.d(TAG, "Client " + macAddress + " disconnected.");
+            mSoftApListener.onConnectedClientsChanged(mIfaceName, macAddress, false);
         }
         @Override
         public void onFailure(String ifaceName) {
