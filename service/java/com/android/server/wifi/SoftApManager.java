@@ -216,7 +216,10 @@ public class SoftApManager implements ActiveModeManager {
         }
         if (softApConfig != null) {
             mIsUnsetBssid = softApConfig.getBssid() == null;
-            softApConfig = mWifiApConfigStore.randomizeBssidIfUnset(mContext, softApConfig);
+            if (mCurrentSoftApCapability.areFeaturesSupported(
+                    SoftApCapability.SOFTAP_FEATURE_MAC_ADDRESS_CUSTOMIZATION)) {
+                softApConfig = mWifiApConfigStore.randomizeBssidIfUnset(mContext, softApConfig);
+            }
         }
         mApConfig = new SoftApModeConfiguration(apConfig.getTargetMode(),
                 softApConfig, mCurrentSoftApCapability);
