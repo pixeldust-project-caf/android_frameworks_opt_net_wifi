@@ -686,9 +686,9 @@ public class SoftApManager implements ActiveModeManager {
 
         private boolean setupInterfacesForDualSoftApMode(WorkSource requestorWs) {
             mdualApInterfaces[0] = mWifiNative.setupInterfaceForSoftApMode(
-                    mWifiNativeDualIfaceCallback, requestorWs);
+                    mWifiNativeDualIfaceCallback, requestorWs,false);
             mdualApInterfaces[1] = mWifiNative.setupInterfaceForSoftApMode(
-                    mWifiNativeDualIfaceCallback, requestorWs);
+                    mWifiNativeDualIfaceCallback, requestorWs,false);
 
             String bridgeIfacename = mWifiNative.setupInterfaceForBridgeMode(
                     mWifiNativeInterfaceCallback);

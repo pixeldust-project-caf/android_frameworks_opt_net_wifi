@@ -74,7 +74,7 @@ public class WifiCountryCode {
     public WifiCountryCode(
             WifiNative wifiNative,
             String oemDefaultCountryCode) {
-        this(null, null, wifiNative, oemDefaultCountryCode);
+        this(null, null, oemDefaultCountryCode);
     }
 
     /**
@@ -284,4 +284,3 @@ public class WifiCountryCode {
         return false;
     }
 }
-
