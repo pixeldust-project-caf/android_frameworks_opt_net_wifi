@@ -20,11 +20,13 @@ import android.net.wifi.SupplicantState;
 import android.net.wifi.WifiEnterpriseConfig;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiSsid;
+import android.net.wifi.WifiDppConfig.DppResult;
 import android.os.Handler;
 import android.os.Message;
 import android.util.ArraySet;
 import android.util.Log;
 import android.util.SparseArray;
+import static android.net.wifi.WifiScanner.ON_PARTIAL_SCAN_RESULTS;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Protocol;
@@ -99,6 +101,9 @@ public class WifiMonitor {
 
     /* MBO/OCE events */
     public static final int MBO_OCE_BSS_TM_HANDLING_DONE         = BASE + 71;
+
+    /* Take some gap, start DPP event from 101*/
+    public static final int DPP_EVENT                            = BASE + 101;
 
     /* WPS config errrors */
     private static final int CONFIG_MULTIPLE_PBC_DETECTED = 12;
@@ -267,9 +272,11 @@ public class WifiMonitor {
             for (Map.Entry<String, SparseArray<Set<Handler>>> entry : mHandlerMap.entrySet()) {
                 if (isMonitoring(entry.getKey())) {
                     Set<Handler> ifaceWhatHandlers = entry.getValue().get(message.what);
-                    for (Handler handler : ifaceWhatHandlers) {
-                        if (handler != null) {
-                            sendMessage(handler, Message.obtain(message));
+                    if (ifaceWhatHandlers != null) {
+                        for (Handler handler : ifaceWhatHandlers) {
+                            if (handler != null) {
+                                sendMessage(handler, Message.obtain(message));
+                            }
                         }
                     }
                 }
@@ -428,6 +435,14 @@ public class WifiMonitor {
     }
 
     /**
+     * Broadcast partial scan result event to all the handlers registered for this event.
+     * @param iface Name of iface on which this occurred.
+     */
+    public void broadcastPartialScanResultEvent(String iface) {
+        sendMessage(iface, SCAN_RESULTS_EVENT, ON_PARTIAL_SCAN_RESULTS);
+    }
+
+    /**
      * Broadcast pno scan result event to all the handlers registered for this event.
      * @param iface Name of iface on which this occurred.
      */
@@ -561,5 +576,16 @@ public class WifiMonitor {
      */
     public void broadcastBssTmHandlingDoneEvent(String iface, BtmFrameData btmFrmData) {
         sendMessage(iface, MBO_OCE_BSS_TM_HANDLING_DONE, btmFrmData);
+    }
+
+    /**
+     * Broadcast the DPP events to all the handlers registered for this event.
+     *
+     * @param iface Name of iface on which this occurred.
+     * @param dppEventType Name of DPP event as defined in DppResults.
+     * @param result DppResult object.
+     */
+    public void broadcastDppEvent(String iface, int dppEventType, DppResult result) {
+        sendMessage(iface, DPP_EVENT, dppEventType, 0, result);
     }
 }

@@ -166,8 +166,8 @@ abstract class SupplicantStaIfaceCallbackImpl extends ISupplicantStaIfaceCallbac
             mStaIfaceHal.logCallback("onStateChanged");
             SupplicantState newSupplicantState =
                     supplicantHidlStateToFrameworkState(newState);
-            WifiSsid wifiSsid =
-                    WifiSsid.createFromByteArray(NativeUtil.byteArrayFromArrayList(ssid));
+            WifiSsid wifiSsid = // wifigbk++
+                        WifiGbk.createWifiSsidFromByteArray(NativeUtil.byteArrayFromArrayList(ssid));
             String bssidStr = NativeUtil.macAddressFromByteArray(bssid);
             if (newState != State.DISCONNECTED) {
                 // onStateChanged(DISCONNECTED) may come before onDisconnected(), so add this
@@ -281,6 +281,7 @@ abstract class SupplicantStaIfaceCallbackImpl extends ISupplicantStaIfaceCallbac
         synchronized (mLock) {
             mStaIfaceHal.logCallback("onAssociationRejected");
             boolean isWrongPwd = false;
+            boolean broadcastAssociationRejectionEvent = true;
             WifiConfiguration curConfiguration =
                     mStaIfaceHal.getCurrentNetworkLocalConfig(mIfaceName);
             if (curConfiguration != null) {
@@ -294,14 +295,16 @@ abstract class SupplicantStaIfaceCallbackImpl extends ISupplicantStaIfaceCallbac
                 // (unspecified failure). In SAE networks, the password authentication
                 // is not related to the 4-way handshake. In this case, we will send an
                 // authentication failure event up.
+                // For WEP password error: not check status code to avoid IoT issues with AP.
                 if (statusCode == StatusCode.UNSPECIFIED_FAILURE
                         && WifiConfigurationUtil.isConfigForSaeNetwork(curConfiguration)) {
                     mStaIfaceHal.logCallback("SAE incorrect password");
                     isWrongPwd = true;
-                } else if (statusCode == StatusCode.CHALLENGE_FAIL
-                        && WifiConfigurationUtil.isConfigForWepNetwork(curConfiguration)) {
+                } else if (WifiConfigurationUtil.isConfigForWepNetwork(curConfiguration)) {
                     mStaIfaceHal.logCallback("WEP incorrect password");
                     isWrongPwd = true;
+                    // Not broadcast ASSOC REJECT to avoid bssid get blacklisted.
+                    broadcastAssociationRejectionEvent = false;
                 }
             }
 
@@ -309,10 +312,12 @@ abstract class SupplicantStaIfaceCallbackImpl extends ISupplicantStaIfaceCallbac
                 mWifiMonitor.broadcastAuthenticationFailureEvent(
                         mIfaceName, WifiManager.ERROR_AUTH_FAILURE_WRONG_PSWD, -1);
             }
-            mWifiMonitor
-                    .broadcastAssociationRejectionEvent(
-                            mIfaceName, statusCode, timedOut,
-                            NativeUtil.macAddressFromByteArray(bssid));
+            if (broadcastAssociationRejectionEvent) {
+                mWifiMonitor
+                        .broadcastAssociationRejectionEvent(
+                                mIfaceName, statusCode, timedOut,
+                                NativeUtil.macAddressFromByteArray(bssid));
+            }
         }
     }
 
@@ -390,4 +395,5 @@ abstract class SupplicantStaIfaceCallbackImpl extends ISupplicantStaIfaceCallbac
             mStaIfaceHal.logCallback("onExtRadioWorkTimeout");
         }
     }
+
 }

@@ -355,6 +355,12 @@ public class XmlUtil {
         public static final String XML_TAG_IS_AUTO_JOIN = "AutoJoinEnabled";
         public static final String XML_TAG_IS_TRUSTED = "Trusted";
         private static final String XML_TAG_IS_MOST_RECENTLY_CONNECTED = "IsMostRecentlyConnected";
+        public static final String XML_TAG_SHARE_THIS_AP = "ShareThisAp";
+
+        public static final String XML_TAG_DPP_CONNECTOR = "DppConnector";
+        public static final String XML_TAG_DPP_NETACCESSKEY = "DppNetAccessKey";
+        public static final String XML_TAG_DPP_NETACCESSKEY_EXPIRY = "DppNetAccessKeyExpiry";
+        public static final String XML_TAG_DPP_CSIGN = "DppCsign";
 
         /**
          * Write WepKeys to the XML stream.
@@ -427,6 +433,7 @@ public class XmlUtil {
                 throws XmlPullParserException, IOException {
             XmlUtil.writeNextValue(out, XML_TAG_CONFIG_KEY, configuration.getKey());
             XmlUtil.writeNextValue(out, XML_TAG_SSID, configuration.SSID);
+            XmlUtil.writeNextValue(out, XML_TAG_SHARE_THIS_AP, configuration.shareThisAp);
             writePreSharedKeyToXml(out, configuration.preSharedKey, encryptionUtil);
             writeWepKeysToXml(out, configuration.wepKeys);
             XmlUtil.writeNextValue(out, XML_TAG_WEP_TX_KEY_INDEX, configuration.wepTxKeyIndex);
@@ -520,6 +527,11 @@ public class XmlUtil {
             XmlUtil.writeNextValue(out, XML_TAG_CARRIER_ID, configuration.carrierId);
             XmlUtil.writeNextValue(out, XML_TAG_IS_MOST_RECENTLY_CONNECTED,
                     configuration.isMostRecentlyConnected);
+
+            XmlUtil.writeNextValue(out, XML_TAG_DPP_CONNECTOR, configuration.dppConnector);
+            XmlUtil.writeNextValue(out, XML_TAG_DPP_NETACCESSKEY, configuration.dppNetAccessKey);
+            XmlUtil.writeNextValue(out, XML_TAG_DPP_NETACCESSKEY_EXPIRY, configuration.dppNetAccessKeyExpiry);
+            XmlUtil.writeNextValue(out, XML_TAG_DPP_CSIGN, configuration.dppCsign);
         }
 
         /**
@@ -585,6 +597,9 @@ public class XmlUtil {
                             break;
                         case XML_TAG_BSSID:
                             configuration.BSSID = (String) value;
+                            break;
+                        case XML_TAG_SHARE_THIS_AP:
+                            configuration.shareThisAp = (boolean) value;
                             break;
                         case XML_TAG_PRE_SHARED_KEY:
                             configuration.preSharedKey = (String) value;
@@ -696,6 +711,18 @@ public class XmlUtil {
                         case XML_TAG_RANDOMIZED_MAC_ADDRESS:
                             configuration.setRandomizedMacAddress(
                                     MacAddress.fromString((String) value));
+                            break;
+                        case XML_TAG_DPP_CONNECTOR:
+                            configuration.dppConnector = (String) value;
+                            break;
+                        case XML_TAG_DPP_NETACCESSKEY:
+                            configuration.dppNetAccessKey = (String) value;
+                            break;
+                        case XML_TAG_DPP_NETACCESSKEY_EXPIRY:
+                            configuration.dppNetAccessKeyExpiry = (int) value;
+                            break;
+                        case XML_TAG_DPP_CSIGN:
+                            configuration.dppCsign = (String) value;
                             break;
                         case XML_TAG_MAC_RANDOMIZATION_SETTING:
                             configuration.macRandomizationSetting = (int) value;
@@ -1114,6 +1141,7 @@ public class XmlUtil {
         public static final String XML_TAG_REALM = "Realm";
         public static final String XML_TAG_OCSP = "Ocsp";
         public static final String XML_TAG_WAPI_CERT_SUITE = "WapiCertSuite";
+        public static final String XML_TAG_SIMNUM = "SimNum";
 
         /**
          * Write password key to the XML stream.
@@ -1187,6 +1215,7 @@ public class XmlUtil {
             XmlUtil.writeNextValue(out, XML_TAG_OCSP, enterpriseConfig.getOcsp());
             XmlUtil.writeNextValue(out,
                     XML_TAG_WAPI_CERT_SUITE, enterpriseConfig.getWapiCertSuite());
+            XmlUtil.writeNextValue(out, XML_TAG_SIMNUM, enterpriseConfig.getSimNum());
         }
 
         /**
@@ -1286,6 +1315,17 @@ public class XmlUtil {
                             break;
                         case XML_TAG_WAPI_CERT_SUITE:
                             enterpriseConfig.setWapiCertSuite((String) value);
+                            break;
+                        case XML_TAG_SIMNUM:
+                            int sim_num;
+                            try {
+                                sim_num = Integer.parseInt((String) value);
+                            } catch (NumberFormatException e) {
+                                sim_num = -1;
+                            }
+                            if (sim_num > 0) {
+                                enterpriseConfig.setSimNum(sim_num);
+                            }
                             break;
                         default:
                             Log.w(TAG, "Ignoring unknown value name found: " + valueName[0]);

@@ -90,6 +90,7 @@ public class SoftApManager implements ActiveModeManager {
     private final WifiManager.SoftApCallback mSoftApCallback;
 
     private String mApInterfaceName;
+    private String mDataInterfaceName;
     private boolean mIfaceIsUp;
     private boolean mIfaceIsDestroyed;
 
@@ -110,6 +111,8 @@ public class SoftApManager implements ActiveModeManager {
 
     private List<WifiClient> mConnectedClients = new ArrayList<>();
     private boolean mTimeoutEnabled = false;
+    private String[] mdualApInterfaces;
+    private boolean mDualSapIfacesDestroyed = false;
 
     private final SarManager mSarManager;
 
@@ -195,6 +198,7 @@ public class SoftApManager implements ActiveModeManager {
                 softApConfig, mCurrentSoftApCapability);
         mWifiMetrics = wifiMetrics;
         mSarManager = sarManager;
+        mdualApInterfaces = new String[2];
         mWifiDiagnostics = wifiDiagnostics;
         mStateMachine = new SoftApStateMachine(looper);
         if (softApConfig != null) {
@@ -316,7 +320,7 @@ public class SoftApManager implements ActiveModeManager {
             intent.putExtra(WifiManager.EXTRA_WIFI_AP_FAILURE_REASON, reason);
         }
 
-        intent.putExtra(WifiManager.EXTRA_WIFI_AP_INTERFACE_NAME, mApInterfaceName);
+        intent.putExtra(WifiManager.EXTRA_WIFI_AP_INTERFACE_NAME, mDataInterfaceName);
         intent.putExtra(WifiManager.EXTRA_WIFI_AP_MODE, mApConfig.getTargetMode());
         mContext.sendStickyBroadcastAsUser(intent, UserHandle.ALL);
     }
@@ -356,9 +360,9 @@ public class SoftApManager implements ActiveModeManager {
     private int setCountryCode() {
         int band = mApConfig.getSoftApConfiguration().getBand();
         if (TextUtils.isEmpty(mCountryCode)) {
-            if (band == SoftApConfiguration.BAND_5GHZ) {
+            if (band == SoftApConfiguration.BAND_5GHZ || band == SoftApConfiguration.BAND_6GHZ) {
                 // Country code is mandatory for 5GHz band.
-                Log.e(TAG, "Invalid country code, required for setting up soft ap in 5GHz");
+                Log.e(TAG, "Invalid country code, required for setting up soft ap in 5GHz/6GHz");
                 return ERROR_GENERIC;
             }
             // Absence of country code is not fatal for 2Ghz & Any band options.
@@ -367,10 +371,10 @@ public class SoftApManager implements ActiveModeManager {
 
         if (!mWifiNative.setCountryCodeHal(
                 mApInterfaceName, mCountryCode.toUpperCase(Locale.ROOT))) {
-            if (band == SoftApConfiguration.BAND_5GHZ) {
+            if (band == SoftApConfiguration.BAND_5GHZ || band == SoftApConfiguration.BAND_6GHZ) {
                 // Return an error if failed to set country code when AP is configured for
                 // 5GHz band.
-                Log.e(TAG, "Failed to set country code, required for setting up soft ap in 5GHz");
+                Log.e(TAG, "Failed to set country code, required for setting up soft ap in 5GHz/6GHz");
                 return ERROR_GENERIC;
             }
             // Failure to set country code is not fatal for other band options.
@@ -408,10 +412,10 @@ public class SoftApManager implements ActiveModeManager {
 
         boolean acsEnabled = mCurrentSoftApCapability.areFeaturesSupported(
                 SoftApCapability.SOFTAP_FEATURE_ACS_OFFLOAD);
-
         result = ApConfigUtil.updateApChannelConfig(
                 mWifiNative, mContext.getResources(), mCountryCode, localConfigBuilder, config,
                 acsEnabled);
+
         if (result != SUCCESS) {
             Log.e(TAG, "Failed to update AP band and channel");
             return result;
@@ -440,14 +444,37 @@ public class SoftApManager implements ActiveModeManager {
     }
 
     /**
+     * Disconnect a client with specified mac address.
+     * Using broadcast mac to disconnect all clients.
+     */
+    private void forceClientDisconnect(@NonNull String ifaceName,
+            @NonNull MacAddress client, int reasonCode) {
+        if (mWifiApConfigStore.getDualSapStatus()) {
+            if (!mDualSapIfacesDestroyed) {
+                if(!TextUtils.isEmpty(mdualApInterfaces[0])) {
+                    mWifiNative.forceClientDisconnect(
+                            mdualApInterfaces[0], client, reasonCode);
+                }
+                if(!TextUtils.isEmpty(mdualApInterfaces[1])) {
+                    mWifiNative.forceClientDisconnect(
+                            mdualApInterfaces[1], client, reasonCode);
+                }
+            }
+        } else {
+            if (!TextUtils.isEmpty(ifaceName)) {
+                mWifiNative.forceClientDisconnect(ifaceName, client, reasonCode);
+            }
+        }
+    }
+
+    /**
      * Disconnect all connected clients on active softap interface(s).
      * This is usually done just before stopSoftAp().
      */
     private void disconnectAllClients() {
-        for (WifiClient client : mConnectedClients) {
-            mWifiNative.forceClientDisconnect(mApInterfaceName, client.getMacAddress(),
-                    SAP_CLIENT_DISCONNECT_REASON_CODE_UNSPECIFIED);
-        }
+        forceClientDisconnect(mApInterfaceName,
+                MacAddress.fromString("ff:ff:ff:ff:ff:ff"),
+                SAP_CLIENT_DISCONNECT_REASON_CODE_UNSPECIFIED);
     }
 
     /**
@@ -455,6 +482,11 @@ public class SoftApManager implements ActiveModeManager {
      */
     private void stopSoftAp() {
         disconnectAllClients();
+        if (mWifiApConfigStore.getDualSapStatus() && !mDualSapIfacesDestroyed) {
+            mDualSapIfacesDestroyed = true;
+            mWifiNative.teardownInterface(mdualApInterfaces[0]);
+            mWifiNative.teardownInterface(mdualApInterfaces[1]);
+        }
         mWifiDiagnostics.stopLogging(mApInterfaceName);
         mWifiNative.teardownInterface(mApInterfaceName);
         Log.d(TAG, "Soft AP is stopped");
@@ -468,7 +500,7 @@ public class SoftApManager implements ActiveModeManager {
 
         if (mBlockedClientList.contains(newClient.getMacAddress())) {
             Log.d(TAG, "Force disconnect for client: " + newClient + "in blocked list");
-            mWifiNative.forceClientDisconnect(
+            forceClientDisconnect(
                     mApInterfaceName, newClient.getMacAddress(),
                     WifiManager.SAP_CLIENT_BLOCK_REASON_CODE_BLOCKED_BY_USER);
             return false;
@@ -478,7 +510,7 @@ public class SoftApManager implements ActiveModeManager {
             mSoftApCallback.onBlockedClientConnecting(newClient,
                     WifiManager.SAP_CLIENT_BLOCK_REASON_CODE_BLOCKED_BY_USER);
             Log.d(TAG, "Force disconnect for unauthorized client: " + newClient);
-            mWifiNative.forceClientDisconnect(
+            forceClientDisconnect(
                     mApInterfaceName, newClient.getMacAddress(),
                     WifiManager.SAP_CLIENT_BLOCK_REASON_CODE_BLOCKED_BY_USER);
             return false;
@@ -490,7 +522,7 @@ public class SoftApManager implements ActiveModeManager {
 
         if (mConnectedClients.size() >= maxConfig) {
             Log.i(TAG, "No more room for new client:" + newClient);
-            mWifiNative.forceClientDisconnect(
+            forceClientDisconnect(
                     mApInterfaceName, newClient.getMacAddress(),
                     WifiManager.SAP_CLIENT_BLOCK_REASON_CODE_NO_MORE_STAS);
             mSoftApCallback.onBlockedClientConnecting(newClient,
@@ -518,6 +550,7 @@ public class SoftApManager implements ActiveModeManager {
         public static final int CMD_SOFT_AP_CHANNEL_SWITCHED = 9;
         public static final int CMD_UPDATE_CAPABILITY = 10;
         public static final int CMD_UPDATE_CONFIG = 11;
+        public static final int CMD_DUAL_SAP_INTERFACE_DESTROYED = 50;
 
         private final State mIdleState = new IdleState();
         private final State mStartedState = new StartedState();
@@ -525,25 +558,179 @@ public class SoftApManager implements ActiveModeManager {
         private final InterfaceCallback mWifiNativeInterfaceCallback = new InterfaceCallback() {
             @Override
             public void onDestroyed(String ifaceName) {
-                if (mApInterfaceName != null && mApInterfaceName.equals(ifaceName)) {
+                if (mDataInterfaceName != null && mDataInterfaceName.equals(ifaceName)) {
                     sendMessage(CMD_INTERFACE_DESTROYED);
                 }
             }
 
             @Override
             public void onUp(String ifaceName) {
-                if (mApInterfaceName != null && mApInterfaceName.equals(ifaceName)) {
+                if (mDataInterfaceName != null && mDataInterfaceName.equals(ifaceName)) {
                     sendMessage(CMD_INTERFACE_STATUS_CHANGED, 1);
                 }
             }
 
             @Override
             public void onDown(String ifaceName) {
-                if (mApInterfaceName != null && mApInterfaceName.equals(ifaceName)) {
+                if (mDataInterfaceName != null && mDataInterfaceName.equals(ifaceName)) {
                     sendMessage(CMD_INTERFACE_STATUS_CHANGED, 0);
                 }
             }
         };
+
+        private final InterfaceCallback mWifiNativeDualIfaceCallback = new InterfaceCallback() {
+            @Override
+            public void onDestroyed(String ifaceName) {
+                sendMessage(CMD_DUAL_SAP_INTERFACE_DESTROYED, ifaceName);
+            }
+
+            @Override
+            public void onUp(String ifaceName) { }
+
+            @Override
+            public void onDown(String ifaceName) { }
+        };
+
+        /* Utility API to generate a temporary MAC for 2nd interface when starting Softap on 2 interfaces.
+         * This flips the last bit of MAC address which was assigned to 1st interface.
+         */
+        private SoftApConfiguration randomizeMacOnSecondInterface(SoftApConfiguration config) {
+            if (config.getBssid() == null) return config;
+            byte[] macBytes = config.getBssid().toByteArray();
+            macBytes[5] ^= 1;
+            MacAddress mac = MacAddress.fromBytes(macBytes);
+
+            return new SoftApConfiguration.Builder(config).setBssid(mac).build();
+        }
+
+        private boolean validateDualSapSetupResult(int result) {
+            if (result != SUCCESS) {
+                int failureReason = WifiManager.SAP_START_FAILURE_GENERAL;
+                if (result == ERROR_NO_CHANNEL) {
+                    failureReason = WifiManager.SAP_START_FAILURE_NO_CHANNEL;
+                }
+                updateApState(WifiManager.WIFI_AP_STATE_FAILED,
+                              WifiManager.WIFI_AP_STATE_ENABLING,
+                              failureReason);
+                stopSoftAp();
+                mWifiMetrics.incrementSoftApStartResult(false, failureReason);
+                mModeListener.onStartFailure();
+                return false;
+            }
+            if (!mWifiNative.setInterfaceUp(mApInterfaceName)) {
+               Log.e(TAG, "Failed to set interface up " +mApInterfaceName);
+               return false;
+            }
+
+            return true;
+        }
+
+        private boolean setupInterfacesForDualSoftApMode() {
+            mdualApInterfaces[0] = mWifiNative.setupInterfaceForSoftApMode(
+                    mWifiNativeDualIfaceCallback);
+            mdualApInterfaces[1] = mWifiNative.setupInterfaceForSoftApMode(
+                    mWifiNativeDualIfaceCallback);
+
+            String bridgeIfacename = mWifiNative.setupInterfaceForBridgeMode(
+                    mWifiNativeInterfaceCallback);
+
+            mApInterfaceName = bridgeIfacename;
+            if (TextUtils.isEmpty(mdualApInterfaces[0]) ||
+                    TextUtils.isEmpty(mdualApInterfaces[1]) ||
+                    TextUtils.isEmpty(mApInterfaceName)) {
+                Log.e(TAG, "setup failure when creating dual ap interface(s).");
+                stopSoftAp();
+                updateApState(WifiManager.WIFI_AP_STATE_FAILED,
+                        WifiManager.WIFI_AP_STATE_DISABLED,
+                        WifiManager.SAP_START_FAILURE_GENERAL);
+                mWifiMetrics.incrementSoftApStartResult(false,
+                        WifiManager.SAP_START_FAILURE_GENERAL);
+                mModeListener.onStartFailure();
+                return false;
+            }
+            mDataInterfaceName = mWifiNative.getFstDataInterfaceName();
+            if (TextUtils.isEmpty(mDataInterfaceName)) {
+                mDataInterfaceName = mApInterfaceName;
+            }
+            updateApState(WifiManager.WIFI_AP_STATE_ENABLING,
+                    WifiManager.WIFI_AP_STATE_DISABLED, 0);
+
+            return true;
+        }
+
+        /**
+         * Start Dual band soft AP.
+         */
+        private boolean setupForDualBandSoftApMode(SoftApConfiguration config) {
+            if (!setupInterfacesForDualSoftApMode())
+                return false;
+
+            SoftApConfiguration localConfig;
+            SoftApConfiguration.Builder configBuilder = new SoftApConfiguration.Builder(config);
+            String bridgeIfacename = mApInterfaceName;
+            SoftApModeConfiguration savedApConfig = mApConfig;
+
+            mApInterfaceName = mdualApInterfaces[0];
+            localConfig = configBuilder.setBand(SoftApConfiguration.BAND_2GHZ).build();
+            mApConfig = new SoftApModeConfiguration(mApConfig.getTargetMode(), localConfig,
+                    mCurrentSoftApCapability);
+            int result = startSoftAp();
+            if (result == SUCCESS) {
+                localConfig = configBuilder.setBand(SoftApConfiguration.BAND_5GHZ).build();
+                localConfig = randomizeMacOnSecondInterface(localConfig);
+                mApInterfaceName = mdualApInterfaces[1];
+                mApConfig = new SoftApModeConfiguration(mApConfig.getTargetMode(), localConfig,
+                        mCurrentSoftApCapability);
+                result = startSoftAp();
+            }
+
+            mApInterfaceName = bridgeIfacename;
+            mApConfig = savedApConfig;
+
+            return validateDualSapSetupResult(result);
+        }
+
+        /**
+         * Start OWE transition soft AP.
+         */
+        private boolean setupForOweTransitionSoftApMode(SoftApConfiguration config) {
+            if (!setupInterfacesForDualSoftApMode())
+                return false;
+
+            SoftApConfiguration.Builder oweConfigBuilder = new SoftApConfiguration.Builder(config);
+            SoftApConfiguration.Builder openConfigBuilder = new SoftApConfiguration.Builder(config);
+
+            String bridgeIfacename = mApInterfaceName;
+            SoftApModeConfiguration savedApConfig = mApConfig;
+
+            mApInterfaceName = mdualApInterfaces[0];
+            oweConfigBuilder.setOweTransIfaceName(mdualApInterfaces[1]);
+
+            // hashCode() generates integer hash for given string
+            // As maximum string size of a integer is 12 bytes SSID size never crosses 32 bytes
+            oweConfigBuilder.setSsid("OWE_" + config.getSsid().hashCode());
+            oweConfigBuilder.setHiddenSsid(true);
+            SoftApConfiguration oweConfig = oweConfigBuilder.build();
+            Log.i(TAG, "Generated OWE SSID: " + oweConfig.getSsid());
+            mApConfig = new SoftApModeConfiguration(mApConfig.getTargetMode(), oweConfig,
+                    mCurrentSoftApCapability);
+            int result = startSoftAp();
+            if (result == SUCCESS) {
+                mApInterfaceName = mdualApInterfaces[1];
+                openConfigBuilder.setOweTransIfaceName(mdualApInterfaces[0]);
+                openConfigBuilder.setPassphrase(null, SoftApConfiguration.SECURITY_TYPE_OPEN);
+                SoftApConfiguration openConfig = openConfigBuilder.build();
+                openConfig = randomizeMacOnSecondInterface(openConfig);
+                mApConfig = new SoftApModeConfiguration(mApConfig.getTargetMode(), openConfig,
+                        mCurrentSoftApCapability);
+                result = startSoftAp();
+            }
+
+            mApInterfaceName = bridgeIfacename;
+            mApConfig = savedApConfig;
+
+            return validateDualSapSetupResult(result);
+        }
 
         SoftApStateMachine(Looper looper) {
             super(TAG, looper);
@@ -559,6 +746,7 @@ public class SoftApManager implements ActiveModeManager {
             @Override
             public void enter() {
                 mApInterfaceName = null;
+                mDataInterfaceName = null;
                 mIfaceIsUp = false;
                 mIfaceIsDestroyed = false;
             }
@@ -570,6 +758,25 @@ public class SoftApManager implements ActiveModeManager {
                         mStateMachine.quitNow();
                         break;
                     case CMD_START:
+                        SoftApConfiguration config = (SoftApConfiguration) message.obj;
+                        if (config == null)
+                            config = mApConfig.getSoftApConfiguration();
+                        if (config != null && config.getBand() == SoftApConfiguration.BAND_DUAL) {
+                            if (!setupForDualBandSoftApMode(config)) {
+                                Log.d(TAG, "Dual band sap start failed");
+                                break;
+                            }
+                            transitionTo(mStartedState);
+                            break;
+                        } else if (config != null && config.getSecurityType() == SoftApConfiguration.SECURITY_TYPE_OWE) {
+                            if (!setupForOweTransitionSoftApMode(config)) {
+                                Log.d(TAG, "OWE transition sap start failed");
+                                break;
+                            }
+                            transitionTo(mStartedState);
+                            break;
+                        }
+
                         mApInterfaceName = mWifiNative.setupInterfaceForSoftApMode(
                                 mWifiNativeInterfaceCallback);
                         if (TextUtils.isEmpty(mApInterfaceName)) {
@@ -582,6 +789,11 @@ public class SoftApManager implements ActiveModeManager {
                             mModeListener.onStartFailure();
                             break;
                         }
+                        mDataInterfaceName = mWifiNative.getFstDataInterfaceName();
+                        if (TextUtils.isEmpty(mDataInterfaceName)) {
+                            mDataInterfaceName = mApInterfaceName;
+                        }
+
                         mSoftApNotifier.dismissSoftApShutDownTimeoutExpiredNotification();
                         updateApState(WifiManager.WIFI_AP_STATE_ENABLING,
                                 WifiManager.WIFI_AP_STATE_DISABLED, 0);
@@ -634,7 +846,7 @@ public class SoftApManager implements ActiveModeManager {
             private WakeupMessage mSoftApTimeoutMessage;
 
             private void scheduleTimeoutMessage() {
-                if (!mTimeoutEnabled || mConnectedClients.size() != 0) {
+                if (!mTimeoutEnabled) {
                     cancelTimeoutMessage();
                     return;
                 }
@@ -680,7 +892,7 @@ public class SoftApManager implements ActiveModeManager {
                               || (mApConfig.getSoftApConfiguration().isClientControlByUserEnabled()
                               && !mAllowedClientList.contains(client.getMacAddress()))) {
                         Log.d(TAG, "Force disconnect for not allowed client: " + client);
-                        mWifiNative.forceClientDisconnect(
+                        forceClientDisconnect(
                                 mApInterfaceName, client.getMacAddress(),
                                 WifiManager.SAP_CLIENT_BLOCK_REASON_CODE_BLOCKED_BY_USER);
                         targetDisconnectClientNumber--;
@@ -696,7 +908,7 @@ public class SoftApManager implements ActiveModeManager {
                         WifiClient allowedClient = allowedClientIterator.next();
                         Log.d(TAG, "Force disconnect for client due to no more room: "
                                 + allowedClient);
-                        mWifiNative.forceClientDisconnect(
+                        forceClientDisconnect(
                                 mApInterfaceName, allowedClient.getMacAddress(),
                                 WifiManager.SAP_CLIENT_BLOCK_REASON_CODE_NO_MORE_STAS);
                         targetDisconnectClientNumber--;
@@ -805,6 +1017,7 @@ public class SoftApManager implements ActiveModeManager {
                 mIfaceIsUp = false;
                 mIfaceIsDestroyed = false;
                 onUpChanged(mWifiNative.isInterfaceUp(mApInterfaceName));
+                onUpChanged(mWifiNative.isInterfaceUp(mDataInterfaceName));
 
                 Handler handler = mStateMachine.getHandler();
                 mSoftApTimeoutMessage = new WakeupMessage(mContext, handler,
@@ -845,6 +1058,7 @@ public class SoftApManager implements ActiveModeManager {
 
                 mSarManager.setSapWifiState(WifiManager.WIFI_AP_STATE_DISABLED);
                 mApInterfaceName = null;
+                mDataInterfaceName = null;
                 mIfaceIsUp = false;
                 mIfaceIsDestroyed = false;
                 mRole = ROLE_UNSPECIFIED;
@@ -933,11 +1147,33 @@ public class SoftApManager implements ActiveModeManager {
                         transitionTo(mIdleState);
                         break;
                     case CMD_INTERFACE_DESTROYED:
-                        Log.d(TAG, "Interface was cleanly destroyed.");
+                        //teardown Dual SAP interfaces if required
+                        if (mWifiApConfigStore.getDualSapStatus() && !mDualSapIfacesDestroyed) {
+                            Log.d(TAG, "Bridge inteface destroyed, Teardown dual intefaces");
+                            mDualSapIfacesDestroyed = true;
+                            mWifiNative.teardownInterface(mdualApInterfaces[0]);
+                            mWifiNative.teardownInterface(mdualApInterfaces[1]);
+                        }
+                        Log.d(TAG, "Interface(s) was cleanly destroyed.");
                         updateApState(WifiManager.WIFI_AP_STATE_DISABLING,
                                 WifiManager.WIFI_AP_STATE_ENABLED, 0);
                         mIfaceIsDestroyed = true;
                         transitionTo(mIdleState);
+                        break;
+                    case CMD_DUAL_SAP_INTERFACE_DESTROYED:
+                        // one of the dual interface is destroyed by native layers. trigger full cleanup.
+                        if (!mDualSapIfacesDestroyed) {
+                            String ifaceName = (String) message.obj;
+                            Log.d(TAG, "One of Dual interface ("+ifaceName+") destroyed. trigger cleanup");
+                            // teardown other dual interface and bridge interface.
+                            mDualSapIfacesDestroyed = true;
+                            if (ifaceName.equals(mdualApInterfaces[0])) {
+                               mWifiNative.teardownInterface(mdualApInterfaces[1]);
+                            } else if (ifaceName.equals(mdualApInterfaces[1])) {
+                               mWifiNative.teardownInterface(mdualApInterfaces[0]);
+                            }
+                            mWifiNative.teardownInterface(mApInterfaceName);
+                        }
                         break;
                     case CMD_FAILURE:
                         Log.w(TAG, "hostapd failure, stop and report failure");
@@ -998,7 +1234,8 @@ public class SoftApManager implements ActiveModeManager {
                                     mApConfig.getTargetMode());
                         } else {
                             Log.d(TAG, "Ignore the config: " + newConfig
-                                    + " update since it requires restart");
+                                    + " update since it requires restart"
+                                    + " \n CurrentConfig: " + currentConfig);
                         }
                         break;
                     default:

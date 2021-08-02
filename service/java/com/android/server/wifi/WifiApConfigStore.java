@@ -21,9 +21,11 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.net.MacAddress;
 import android.net.util.MacAddressUtils;
+import android.net.wifi.ScanResult;
 import android.net.wifi.SoftApConfiguration;
 import android.os.Handler;
 import android.os.Process;
+import android.os.SystemProperties;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -95,6 +97,11 @@ public class WifiApConfigStore {
         }
     }
 
+    // Dual SAP config
+    private boolean mDualSapStatus = false;
+
+    private int mWifiStandard = ScanResult.WIFI_STANDARD_LEGACY;
+
     WifiApConfigStore(Context context,
             WifiInjector wifiInjector,
             Handler handler,
@@ -117,6 +124,24 @@ public class WifiApConfigStore {
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_HOTSPOT_CONFIG_USER_TAPPED_CONTENT);
         mMacAddressUtil = wifiInjector.getMacAddressUtil();
+    }
+
+   /* Additional APIs(get/set) to support SAP + SAP Feature */
+
+    public synchronized String getBridgeInterface() {
+        String bridgeInterfaceName = mContext.getResources()
+                   .getString(R.string.config_vendor_wifi_tether_bridge_interface_name);
+        if (bridgeInterfaceName == null || TextUtils.isEmpty(bridgeInterfaceName))
+            return "wifi_br0"; // Return default value
+        return bridgeInterfaceName;
+    }
+
+    public synchronized boolean getDualSapStatus() {
+        return mDualSapStatus;
+    }
+
+    public synchronized void setDualSapStatus(boolean enable) {
+        mDualSapStatus = enable;
     }
 
     /**
@@ -246,7 +271,9 @@ public class WifiApConfigStore {
 
         // some countries are unable to support 5GHz only operation, always allow for 2GHz when
         // config doesn't force channel
-        if (config.getChannel() == 0 && (config.getBand() & SoftApConfiguration.BAND_2GHZ) == 0) {
+        // Do not explicitly mark 2G support when BOTH 2G+5G band is requested in DBS mode.
+        if (config.getChannel() == 0 && ((config.getBand() & SoftApConfiguration.BAND_2GHZ) == 0)
+                && (config.getBand() != SoftApConfiguration.BAND_DUAL)) {
             Log.w(TAG, "Supplied ap config band without 2.4G, add allowing for 2.4GHz");
             if (convertedConfigBuilder == null) {
                 convertedConfigBuilder = new SoftApConfiguration.Builder(config);
@@ -431,10 +458,11 @@ public class WifiApConfigStore {
             return false;
         }
 
-        if (authType == SoftApConfiguration.SECURITY_TYPE_OPEN) {
+        if (authType == SoftApConfiguration.SECURITY_TYPE_OPEN
+                || authType == SoftApConfiguration.SECURITY_TYPE_OWE) {
             // open networks should not have a password
             if (hasPreSharedKey) {
-                Log.d(TAG, "open softap network should not have a password");
+                Log.d(TAG, "open or OWE softap network should not have a password");
                 return false;
             }
         } else if (authType == SoftApConfiguration.SECURITY_TYPE_WPA2_PSK
@@ -452,7 +480,7 @@ public class WifiApConfigStore {
             }
         } else {
             // this is not a supported security type
-            Log.d(TAG, "softap configs must either be open or WPA2 PSK networks");
+            Log.d(TAG, "softap configs must either be open or WPA2 PSK or OWE or SAE networks");
             return false;
         }
 
@@ -471,5 +499,13 @@ public class WifiApConfigStore {
             sb.append(allowed.charAt(random.nextInt(allowed.length())));
         }
         return sb.toString();
+    }
+
+    public void setWifiStandard(int standard) {
+        mWifiStandard = standard;
+    }
+
+    public int getWifiStandard() {
+        return mWifiStandard;
     }
 }

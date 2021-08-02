@@ -18,6 +18,7 @@ package com.android.server.wifi;
 
 import static com.android.internal.util.Preconditions.checkNotNull;
 import static com.android.server.wifi.ClientModeImpl.WIFI_WORK_SOURCE;
+import static com.android.server.wifi.WifiSettingsConfigStore.WIFI_WHITELIST_ROAMING_ENABLED;
 
 import android.annotation.NonNull;
 import android.app.AlarmManager;
@@ -31,6 +32,7 @@ import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.DeviceMobilityState;
 import android.net.wifi.WifiNetworkSuggestion;
 import android.net.wifi.WifiScanner;
+import android.net.wifi.p2p.WifiP2pManager;
 import android.net.wifi.WifiScanner.PnoSettings;
 import android.net.wifi.WifiScanner.ScanSettings;
 import android.net.wifi.hotspot2.PasspointConfiguration;
@@ -160,6 +162,7 @@ public class WifiConnectivityManager {
     private boolean mAutoJoinEnabled = false; // disabled by default, enabled by external triggers
     private boolean mRunning = false;
     private boolean mScreenOn = false;
+    private int mMiracastMode = WifiP2pManager.MIRACAST_DISABLED;
     private int mWifiState = WIFI_STATE_UNKNOWN;
     private int mInitialScanState = INITIAL_SCAN_STATE_COMPLETE;
     private boolean mAutoJoinEnabledExternal = true; // enabled by default
@@ -175,6 +178,8 @@ public class WifiConnectivityManager {
     private boolean mPnoScanStarted = false;
     private boolean mPeriodicScanTimerSet = false;
     private boolean mDelayedPartialScanTimerSet = false;
+    private boolean mAllowConnectionOnPartialScanResults = false;
+    private boolean mWasLastConnectionAttemptedWithPartialResults = false;
 
     // Used for Initial Scan metrics
     private boolean mFailedInitialPartialScan = false;
@@ -297,7 +302,7 @@ public class WifiConnectivityManager {
      *         false - if no candidate is selected by WifiNetworkSelector
      */
     private boolean handleScanResults(List<ScanDetail> scanDetails, String listenerName,
-            boolean isFullScan) {
+            boolean isFullScan, boolean isPartialScanResults) {
         mWifiChannelUtilization.refreshChannelStatsAndChannelUtilization(
                 mStateMachine.getWifiLinkLayerStats(), WifiChannelUtilization.UNKNOWN_FREQ);
 
@@ -315,10 +320,31 @@ public class WifiConnectivityManager {
             return false;
         }
 
+        if (isPartialScanResults) {
+            if (!mContext.getResources().getBoolean(
+                    R.bool.config_wifi_framework_enable_quick_connect)) {
+                return false;
+            }
+            if (mAllowConnectionOnPartialScanResults ||
+                 ((mContext.getResources().getBoolean(R.bool.config_wifiEnablePartialInitialScan))
+                   && (mInitialScanState != INITIAL_SCAN_STATE_COMPLETE))) {
+                return false;
+            }
+        }
+        if (mStateMachine.isDisconnected()) {
+            mWasLastConnectionAttemptedWithPartialResults = false;
+        }
+        // Do not select network with partial network if we are already connected
+        if (isPartialScanResults && (mStateMachine.isConnected() ||
+            mWasLastConnectionAttemptedWithPartialResults)) {
+            return false;
+        }
+
         localLog(listenerName + " onResults: start network selection");
 
+        List<ScanDetail> filteredScans = mStateMachine.qtiGetFilteredScan(scanDetails);
         List<WifiCandidates.Candidate> candidates = mNetworkSelector.getCandidatesFromScan(
-                scanDetails, bssidBlocklist, mWifiInfo, mStateMachine.isConnected(),
+                filteredScans, bssidBlocklist, mWifiInfo, mStateMachine.isConnected(),
                 mStateMachine.isDisconnected(), mUntrustedConnectionAllowed);
         mLatestCandidates = candidates;
         mLatestCandidatesTimestampMs = mClock.getElapsedSinceBootMillis();
@@ -337,6 +363,7 @@ public class WifiConnectivityManager {
         if (candidate != null) {
             localLog(listenerName + ":  WNS candidate-" + candidate.SSID);
             connectToNetwork(candidate);
+            mWasLastConnectionAttemptedWithPartialResults = isPartialScanResults;
             return true;
         } else {
             if (mWifiState == WIFI_STATE_DISCONNECTED) {
@@ -454,6 +481,7 @@ public class WifiConnectivityManager {
     private class AllSingleScanListener implements WifiScanner.ScanListener {
         private List<ScanDetail> mScanDetails = new ArrayList<ScanDetail>();
         private int mNumScanResultsIgnoredDueToSingleRadioChain = 0;
+        private boolean mPartialScanResults = false;
 
         public void clearScanDetails() {
             mScanDetails.clear();
@@ -507,7 +535,7 @@ public class WifiConnectivityManager {
                         + mNumScanResultsIgnoredDueToSingleRadioChain);
             }
             boolean wasConnectAttempted = handleScanResults(mScanDetails,
-                    ALL_SINGLE_SCAN_LISTENER, isFullBandScanResults);
+                    ALL_SINGLE_SCAN_LISTENER, isFullBandScanResults, mPartialScanResults);
             clearScanDetails();
 
             // Update metrics to see if a single scan detected a valid network
@@ -526,6 +554,11 @@ public class WifiConnectivityManager {
             if (mInitialScanState == INITIAL_SCAN_STATE_AWAITING_RESPONSE) {
                 // Done with initial scan
                 setInitialScanState(INITIAL_SCAN_STATE_COMPLETE);
+                if (!wasConnectAttempted && mPartialScanResults) {
+                    Log.i(TAG, "Connection not attempted with the reduced initial scans, due "
+                          + "to partial scan timer");
+                    return;
+                }
 
                 if (wasConnectAttempted) {
                     Log.i(TAG, "Connection attempted with the reduced initial scans");
@@ -546,6 +579,14 @@ public class WifiConnectivityManager {
                 mFailedInitialPartialScan = false;
                 mInitialPartialScanChannelCount = 0;
             }
+        }
+
+        @Override
+        public void onPartialScanResults(WifiScanner.ScanData[] scanDatas) {
+            Log.d(TAG, "onPartialScanResults invoked");
+            mPartialScanResults = true;
+            onResults(scanDatas);
+            mPartialScanResults = false;
         }
 
         @Override
@@ -694,7 +735,7 @@ public class WifiConnectivityManager {
             }
 
             boolean wasConnectAttempted;
-            wasConnectAttempted = handleScanResults(mScanDetails, PNO_SCAN_LISTENER, false);
+            wasConnectAttempted = handleScanResults(mScanDetails, PNO_SCAN_LISTENER, false, false);
             clearScanDetails();
             mScanRestartCount = 0;
 
@@ -922,7 +963,8 @@ public class WifiConnectivityManager {
         if (currentConnectedNetwork != null
                 && (currentConnectedNetwork.networkId == candidate.networkId
                 //TODO(b/36788683): re-enable linked configuration check
-                /* || currentConnectedNetwork.isLinked(candidate) */)) {
+                 || (mWifiInjector.getSettingsConfigStore().get(WIFI_WHITELIST_ROAMING_ENABLED)
+                      && currentConnectedNetwork.isLinked(candidate)))) {
             // Framework initiates roaming only if firmware doesn't support
             // {@link android.net.wifi.WifiManager#WIFI_FEATURE_CONTROL_ROAMING}.
             if (mConnectivityHelper.isFirmwareRoamingSupported()) {
@@ -938,7 +980,7 @@ public class WifiConnectivityManager {
             // Framework specifies the connection target BSSID if firmware doesn't support
             // {@link android.net.wifi.WifiManager#WIFI_FEATURE_CONTROL_ROAMING} or the
             // candidate configuration contains a specified BSSID.
-            if (mConnectivityHelper.isFirmwareRoamingSupported() && (candidate.BSSID == null
+            if (!mStateMachine.isActiveDualMode() && mConnectivityHelper.isFirmwareRoamingSupported() && (candidate.BSSID == null
                       || candidate.BSSID.equals(ClientModeImpl.SUPPLICANT_BSSID_ANY))) {
                 targetBssid = ClientModeImpl.SUPPLICANT_BSSID_ANY;
                 localLog("connectToNetwork: Connect to " + candidate.SSID + ":" + targetBssid
@@ -1160,6 +1202,13 @@ public class WifiConnectivityManager {
                     setInitialScanState(INITIAL_SCAN_STATE_AWAITING_RESPONSE);
                     mWifiMetrics.incrementInitialPartialScanCount();
                 }
+
+                // Scheduling for scan if initial scan skipped
+                if (mInitialScanState == INITIAL_SCAN_STATE_COMPLETE) {
+                    schedulePeriodicScanTimer(
+                        getScheduledSingleScanIntervalMs(mCurrentSingleScanScheduleIndex));
+                }
+
                 // No scheduling for another scan (until we get the results)
                 return;
             }
@@ -1255,6 +1304,17 @@ public class WifiConnectivityManager {
 
     // Start a single scan
     private void startForcedSingleScan(boolean isFullBandScan, WorkSource workSource) {
+        // Any scans will impact wifi performance including WFD performance,
+        // So at least ignore scans triggered internally by ConnectivityManager
+        // when WFD session is active. We still allow connectivity scans initiated
+        // by other work source.
+        if (WIFI_WORK_SOURCE.equals(workSource) &&
+            (mMiracastMode == WifiP2pManager.MIRACAST_SOURCE ||
+            mMiracastMode == WifiP2pManager.MIRACAST_SINK)) {
+            Log.d(TAG,"ignore connectivity scan, MiracastMode:" + mMiracastMode);
+            return;
+        }
+
         mPnoScanListener.resetLowRssiNetworkRetryDelay();
 
         ScanSettings settings = new ScanSettings();
@@ -1583,6 +1643,15 @@ public class WifiConnectivityManager {
         mOpenNetworkNotifier.handleScreenStateChanged(screenOn);
 
         startConnectivityScan(SCAN_ON_SCHEDULE);
+    }
+
+    /**
+     * Save current miracast mode, it will be used to ignore
+     * connectivity scan during the time when miracast is enabled.
+     */
+    public void saveMiracastMode(int mode) {
+        Log.d(TAG,"saveMiracastMode: mode=" + mode);
+        mMiracastMode = mode;
     }
 
     /**
@@ -1927,6 +1996,7 @@ public class WifiConnectivityManager {
         if (mWifiEnabled && !enable) {
             mNetworkSelector.resetOnDisable();
             mBssidBlocklistMonitor.clearBssidBlocklist();
+            mWasLastConnectionAttemptedWithPartialResults = false;
         }
         mWifiEnabled = enable;
         updateRunningState();
@@ -1952,6 +2022,12 @@ public class WifiConnectivityManager {
         }
     }
 
+    /**
+     * Allow quick connect with partial scan results
+     */
+    public void allowConnectOnPartialScanResults(boolean enable) {
+        mAllowConnectionOnPartialScanResults = enable;
+    }
     @VisibleForTesting
     int getLowRssiNetworkRetryDelay() {
         return mPnoScanListener.getLowRssiNetworkRetryDelay();

@@ -235,7 +235,7 @@ public class WifiAwareClientState {
                 boolean hasPermission = mWifiPermissionsUtil.checkCallersLocationPermission(
                         mCallingPackage, mCallingFeatureId, mUid,
                         /* coarseForTargetSdkLessThanQ */ true, null);
-                if (VDBG) Log.v(TAG, "hasPermission=" + hasPermission);
+                if (mDbg) Log.v(TAG, "hasPermission=" + hasPermission);
                 mCallback.onIdentityChanged(hasPermission ? mac : ALL_ZERO_MAC);
             } catch (RemoteException e) {
                 Log.w(TAG, "onIdentityChanged: RemoteException - ignored: " + e);
@@ -271,7 +271,7 @@ public class WifiAwareClientState {
                 boolean hasPermission = mWifiPermissionsUtil.checkCallersLocationPermission(
                         mCallingPackage, mCallingFeatureId, mUid,
                         /* coarseForTargetSdkLessThanQ */ true, null);
-                if (VDBG) Log.v(TAG, "hasPermission=" + hasPermission);
+                if (mDbg) Log.v(TAG, "hasPermission=" + hasPermission);
                 mCallback.onIdentityChanged(
                         hasPermission ? currentDiscoveryInterfaceMac : ALL_ZERO_MAC);
             } catch (RemoteException e) {

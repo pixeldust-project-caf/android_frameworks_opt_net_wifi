@@ -54,6 +54,7 @@ public class WifiTrafficPoller {
     }
 
     private final ExternalCallbackTracker<CallbackWrapper> mRegisteredCallbacks;
+    private String mInterface;
 
     public WifiTrafficPoller(@NonNull Handler handler) {
         mRegisteredCallbacks = new ExternalCallbackTracker<>(handler);
@@ -73,6 +74,12 @@ public class WifiTrafficPoller {
      */
     public void removeCallback(int callbackId) {
         mRegisteredCallbacks.remove(callbackId);
+    }
+
+    void setInterface(String iface) {
+        mTxPkts = mRxPkts = 0;
+        mLastActivity = 0;
+        mInterface = iface;
     }
 
     /**

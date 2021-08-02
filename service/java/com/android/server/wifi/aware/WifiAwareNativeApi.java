@@ -174,18 +174,18 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
         final PrintWriter pw = parentShell.getErrPrintWriter();
 
         String subCmd = parentShell.getNextArgRequired();
-        if (VDBG) Log.v(TAG, "onCommand: subCmd='" + subCmd + "'");
+        if (mDbg) Log.v(TAG, "onCommand: subCmd='" + subCmd + "'");
         switch (subCmd) {
             case "set": {
                 String name = parentShell.getNextArgRequired();
-                if (VDBG) Log.v(TAG, "onCommand: name='" + name + "'");
+                if (mDbg) Log.v(TAG, "onCommand: name='" + name + "'");
                 if (!mSettableParameters.containsKey(name)) {
                     pw.println("Unknown parameter name -- '" + name + "'");
                     return -1;
                 }
 
                 String valueStr = parentShell.getNextArgRequired();
-                if (VDBG) Log.v(TAG, "onCommand: valueStr='" + valueStr + "'");
+                if (mDbg) Log.v(TAG, "onCommand: valueStr='" + valueStr + "'");
                 int value;
                 try {
                     value = Integer.valueOf(valueStr);
@@ -201,7 +201,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
                 String name = parentShell.getNextArgRequired();
                 String valueStr = parentShell.getNextArgRequired();
 
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "onCommand: mode='" + mode + "', name='" + name + "'" + ", value='"
                             + valueStr + "'");
                 }
@@ -227,7 +227,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
             }
             case "get": {
                 String name = parentShell.getNextArgRequired();
-                if (VDBG) Log.v(TAG, "onCommand: name='" + name + "'");
+                if (mDbg) Log.v(TAG, "onCommand: name='" + name + "'");
                 if (!mSettableParameters.containsKey(name)) {
                     pw.println("Unknown parameter name -- '" + name + "'");
                     return -1;
@@ -239,7 +239,7 @@ public class WifiAwareNativeApi implements WifiAwareShellCommand.DelegatedShellC
             case "get-power": {
                 String mode = parentShell.getNextArgRequired();
                 String name = parentShell.getNextArgRequired();
-                if (VDBG) Log.v(TAG, "onCommand: mode='" + mode + "', name='" + name + "'");
+                if (mDbg) Log.v(TAG, "onCommand: mode='" + mode + "', name='" + name + "'");
                 if (!mSettablePowerParameters.containsKey(mode)) {
                     pw.println("Unknown mode -- '" + mode + "'");
                     return -1;

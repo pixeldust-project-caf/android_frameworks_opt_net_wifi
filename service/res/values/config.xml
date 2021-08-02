@@ -188,6 +188,12 @@
          scan in minutes -->
     <integer translatable="false" name="config_wifiInitialPartialScanChannelCacheAgeMins">14400</integer>
 
+    <!-- Boolean indicating enable or disable quick connect -->
+    <bool translatable="false" name="config_wifi_framework_enable_quick_connect">false</bool>
+
+    <!-- Integer for Wifi Partial scan results fetching period(in ms) -->
+    <integer translatable="false" name="config_wifi_partial_scan_results_fetching_period_ms">0</integer>
+
     <!-- Boolean indicating whether single radio chain scan results are to be used for network selection -->
     <bool translatable="false" name="config_wifi_framework_use_single_radio_chain_scan_results_network_selection">true</bool>
 
@@ -207,8 +213,20 @@
     <!-- Wifi driver supports Automatic channel selection (ACS) for softap -->
     <bool translatable="false" name="config_wifi_softap_acs_supported">false</bool>
 
+    <!-- Wifi driver Automatic channel selection (ACS) for softap to include dfs channels -->
+    <bool translatable="false" name="config_wifi_softap_acs_include_dfs">false</bool>
+
     <!-- Wifi driver supports WPA3 Simultaneous Authentication of Equals (WPA3-SAE) for softap -->
     <bool translatable="false" name="config_wifi_softap_sae_supported">false</bool>
+
+    <!-- Wifi driver supports WPA3 Simultaneous Authentication of Equals (WPA3-OWE) for softap -->
+    <bool translatable="false" name="config_vendor_wifi_softap_owe_supported">false</bool>
+
+    <!-- Wifi driver supports Beacon Protection for SoftAp -->
+    <bool translatable="false" name="config_vendor_softap_beacon_protection_supported">false</bool>
+
+    <!-- Wifi driver supports Ocv for SoftAp -->
+    <bool translatable="false" name="config_vendor_softap_ocv_supported">false</bool>
 
     <!-- Wifi driver supports IEEE80211AC for softap -->
     <bool translatable="false" name="config_wifi_softap_ieee80211ac_supported">false</bool>
@@ -464,4 +482,10 @@
 
     <!-- Enable adding minimum confirmation duration when sending network score to connectivity service. -->
     <bool translatable="false" name="config_wifiMinConfirmationDurationSendNetworkScoreEnabled">false</bool>
+
+    <!-- Do not translate. Default bridge interface name for Dual SAP tethering -->
+    <string name="config_vendor_wifi_tether_bridge_interface_name" translatable="false">wifi_br0</string>
+
+    <!-- Boolean to provide support to keep wifi5 symbol for 8SS supported device and 11ax AP -->
+    <bool translatable="false" name="config_vendorWifi11axReadySupport">true</bool>
 </resources>

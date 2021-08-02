@@ -287,6 +287,7 @@ class OsuWifiEntry extends WifiEntry {
         } else {
             mLevel = WIFI_LEVEL_UNREACHABLE;
         }
+        updateWifiGenerationInfo(mCurrentScanResults);
         notifyOnUpdated();
     }
 

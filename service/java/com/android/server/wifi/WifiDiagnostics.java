@@ -24,6 +24,10 @@ import android.util.ArraySet;
 import android.util.Base64;
 import android.util.Log;
 import android.util.SparseLongArray;
+import android.content.Intent;
+
+import android.net.wifi.WifiManager;
+import android.os.UserHandle;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.wifi.util.ByteArrayRingBuffer;
@@ -61,7 +65,7 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
      */
 
     private static final String TAG = "WifiDiags";
-    private static final boolean DBG = false;
+    private static final boolean DBG = true;
 
     /** log level flags; keep these consistent with wifi_logger.h */
 
@@ -91,6 +95,10 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
     public static final int REPORT_REASON_WIFINATIVE_FAILURE        = 8;
     public static final int REPORT_REASON_REACHABILITY_LOST         = 9;
     public static final int REPORT_REASON_FATAL_FW_ALERT            = 10;
+    public static final int REPORT_REASON_NUD_FAILURE               = 11;
+
+    /** Data stall offset */
+    private static final int  DATA_STALL_OFFSET_REASON_CODE         = 256;
 
     /** number of bug reports to hold */
     public static final int MAX_BUG_REPORTS                         = 4;
@@ -471,9 +479,13 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
     }
 
     synchronized void onWifiAlert(int errorCode, @NonNull byte[] buffer) {
-        captureAlertData(errorCode, buffer);
-        mWifiMetrics.logFirmwareAlert(errorCode);
-        mWifiInjector.getWifiScoreCard().noteFirmwareAlert(errorCode);
+	captureAlertData(errorCode, buffer);
+	mWifiMetrics.logFirmwareAlert(errorCode);
+	mWifiInjector.getWifiScoreCard().noteFirmwareAlert(errorCode);
+
+	Intent intent = new Intent(WifiManager.WIFI_ALERT);
+	intent.putExtra(WifiManager.EXTRA_WIFI_ALERT_REASON, errorCode);
+	mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
     }
 
     /**
@@ -488,7 +500,7 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
         final int ringBufferByteLimitLarge = mContext.getResources().getInteger(
                 R.integer.config_wifi_logger_ring_buffer_verbose_size_limit_kb) * 1024;
         if (verboseEnabled) {
-            mLogLevel = VERBOSE_LOG_WITH_WAKEUP;
+            mLogLevel = VERBOSE_DETAILED_LOG_WITH_WAKEUP;
             mMaxRingBufferSizeBytes = ringBufferByteLimitLarge;
         } else {
             mLogLevel = VERBOSE_NORMAL_LOG;
@@ -636,6 +648,7 @@ class WifiDiagnostics extends BaseWifiDiagnostics {
 
     private BugReport captureBugreport(int errorCode, boolean captureFWDump) {
         BugReport report = new BugReport();
+        mLog.warn("CaptureBugReport %").c(errorCode).flush();
         report.errorCode = errorCode;
         report.systemTimeMs = System.currentTimeMillis();
         report.kernelTimeNanos = System.nanoTime();

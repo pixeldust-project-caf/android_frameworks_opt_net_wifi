@@ -150,7 +150,7 @@ public class WifiAwareDataPathStateManager {
     public void start(Context context, Looper looper, WifiAwareMetrics awareMetrics,
             WifiPermissionsUtil wifiPermissionsUtil, WifiPermissionsWrapper permissionsWrapper,
             NetdWrapper netdWrapper) {
-        if (VDBG) Log.v(TAG, "start");
+        if (mDbg) Log.v(TAG, "start");
 
         mContext = context;
         mAwareMetrics = awareMetrics;
@@ -187,10 +187,10 @@ public class WifiAwareDataPathStateManager {
 
     private Map.Entry<WifiAwareNetworkSpecifier, AwareNetworkRequestInformation>
                 getNetworkRequestByCanonicalDescriptor(CanonicalConnectionInfo cci) {
-        if (VDBG) Log.v(TAG, "getNetworkRequestByCanonicalDescriptor: cci=" + cci);
+        if (mDbg) Log.v(TAG, "getNetworkRequestByCanonicalDescriptor: cci=" + cci);
         for (Map.Entry<WifiAwareNetworkSpecifier, AwareNetworkRequestInformation> entry :
                 mNetworkRequestsCache.entrySet()) {
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG, "getNetworkRequestByCanonicalDescriptor: entry=" + entry.getValue()
                         + " --> cci=" + entry.getValue().getCanonicalDescriptor());
             }
@@ -396,7 +396,7 @@ public class WifiAwareDataPathStateManager {
         Map.Entry<WifiAwareNetworkSpecifier, AwareNetworkRequestInformation> nnriE =
                 getNetworkRequestByNdpId(ndpId);
         if (nnriE != null) {
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG,
                         "onDataPathRequest: initiator-side indication for " + nnriE.getValue());
             }
@@ -423,7 +423,7 @@ public class WifiAwareDataPathStateManager {
         if (nnri == null) {
             Log.w(TAG, "onDataPathRequest: can't find a request with specified pubSubId=" + pubSubId
                     + ", mac=" + String.valueOf(HexEncoding.encode(mac)));
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG, "onDataPathRequest: network request cache = " + mNetworkRequestsCache);
             }
             mMgr.respondToDataPathRequest(false, ndpId, "", null, null, null, false);
@@ -481,7 +481,7 @@ public class WifiAwareDataPathStateManager {
         if (nnri == null) {
             Log.w(TAG, "onRespondToDataPathRequest: can't find a request with specified ndpId="
                     + ndpId);
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG, "onRespondToDataPathRequest: network request cache = "
                         + mNetworkRequestsCache);
             }
@@ -580,7 +580,7 @@ public class WifiAwareDataPathStateManager {
                     return networkSpecifier;
                 }
             } else {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "onDataPathConfirm: interface already configured: "
                             + nnri.interfaceName);
                 }
@@ -607,7 +607,7 @@ public class WifiAwareDataPathStateManager {
             nnri.startValidationTimestamp = mClock.getElapsedSinceBootMillis();
             handleAddressValidation(nnri, ndpId, networkSpecifier.isOutOfBand(), mac);
         } else {
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG, "onDataPathConfirm: data-path for networkSpecifier=" + networkSpecifier
                         + " rejected - reason=" + reason);
             }
@@ -716,7 +716,7 @@ public class WifiAwareDataPathStateManager {
         Map.Entry<WifiAwareNetworkSpecifier, AwareNetworkRequestInformation> nnriE =
                 getNetworkRequestByNdpId(ndpId);
         if (nnriE == null) {
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG, "onDataPathEnd: network request not found for ndpId=" + ndpId);
             }
             return;
@@ -812,7 +812,7 @@ public class WifiAwareDataPathStateManager {
 
         public void tickleConnectivityIfWaiting() {
             if (mWaitingForTermination) {
-                if (VDBG) Log.v(TAG, "tickleConnectivityIfWaiting: was waiting!");
+                if (mDbg) Log.v(TAG, "tickleConnectivityIfWaiting: was waiting!");
                 mWaitingForTermination = false;
                 reevaluateAllRequests();
             }
@@ -820,13 +820,13 @@ public class WifiAwareDataPathStateManager {
 
         @Override
         public boolean acceptRequest(NetworkRequest request, int score) {
-            if (VDBG) {
+            if (mDbg) {
                 Log.v(TAG, "WifiAwareNetworkFactory.acceptRequest: request=" + request + ", score="
                         + score);
             }
 
             if (!mMgr.isUsageEnabled()) {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "WifiAwareNetworkFactory.acceptRequest: request=" + request
                             + " -- Aware disabled");
                 }
@@ -852,7 +852,7 @@ public class WifiAwareDataPathStateManager {
             // look up specifier - are we being called again?
             AwareNetworkRequestInformation nnri = mNetworkRequestsCache.get(networkSpecifier);
             if (nnri != null) {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "WifiAwareNetworkFactory.acceptRequest: request=" + request
                             + " - already in cache with state=" + nnri.state);
                 }
@@ -881,7 +881,7 @@ public class WifiAwareDataPathStateManager {
             Map.Entry<WifiAwareNetworkSpecifier, AwareNetworkRequestInformation> primaryRequest =
                     getNetworkRequestByCanonicalDescriptor(nnri.getCanonicalDescriptor());
             if (primaryRequest != null) {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "WifiAwareNetworkFactory.acceptRequest: request=" + request
                             + ", already has a primary request=" + primaryRequest.getKey()
                             + " with state=" + primaryRequest.getValue().state);
@@ -921,7 +921,7 @@ public class WifiAwareDataPathStateManager {
             }
 
             if (nnri.state != AwareNetworkRequestInformation.STATE_IDLE) {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "WifiAwareNetworkFactory.needNetworkFor: networkRequest="
                             + networkRequest + " - already in progress");
                     // TODO: understand how/when can be called again/while in progress (seems
@@ -974,7 +974,7 @@ public class WifiAwareDataPathStateManager {
             }
 
             if (nnri.networkAgent != null) {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "WifiAwareNetworkFactory.releaseNetworkFor: networkRequest="
                             + networkRequest + ", nnri=" + nnri
                             + ": agent already created - deferring ending data-path to agent"
@@ -995,7 +995,7 @@ public class WifiAwareDataPathStateManager {
                             + networkRequest);
                 }
                 if (nnri.ndpId != 0) { // 0 is never a valid ID!
-                    if (VDBG) Log.v(TAG, "releaseNetworkFor: in progress NDP being terminated");
+                    if (mDbg) Log.v(TAG, "releaseNetworkFor: in progress NDP being terminated");
                     mMgr.endDataPath(nnri.ndpId);
                     nnri.state = AwareNetworkRequestInformation.STATE_TERMINATING;
                 } else {
@@ -1005,7 +1005,7 @@ public class WifiAwareDataPathStateManager {
                     }
                 }
             } else {
-                if (VDBG) {
+                if (mDbg) {
                     Log.v(TAG, "releaseNetworkFor: equivalent requests exist - not terminating "
                             + "networkRequest=" + networkRequest);
                 }
@@ -1058,7 +1058,7 @@ public class WifiAwareDataPathStateManager {
     }
 
     private void tearDownInterfaceIfPossible(AwareNetworkRequestInformation nnri) {
-        if (VDBG) Log.v(TAG, "tearDownInterfaceIfPossible: nnri=" + nnri);
+        if (mDbg) Log.v(TAG, "tearDownInterfaceIfPossible: nnri=" + nnri);
 
         if (!TextUtils.isEmpty(nnri.interfaceName)) {
             boolean interfaceUsedByAnotherNdp = isInterfaceUpAndUsedByAnotherNdp(nnri);
@@ -1127,7 +1127,7 @@ public class WifiAwareDataPathStateManager {
             }
         }
 
-        if (VDBG) {
+        if (mDbg) {
             Log.v(TAG, "selectInterfaceForRequest: potential=" + potential + ", used=" + used);
         }
 

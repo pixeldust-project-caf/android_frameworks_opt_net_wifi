@@ -20,7 +20,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
+import android.os.UserHandle;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
@@ -80,6 +82,12 @@ public class WifiCountryCode {
         Log.d(TAG, "mDefaultCountryCode " + mDefaultCountryCode);
     }
 
+    public WifiCountryCode(
+            WifiNative wifiNative,
+            String oemDefaultCountryCode) {
+        this(null, null, wifiNative, oemDefaultCountryCode);
+    }
+
     /**
      * Enable verbose logging for WifiCountryCode.
      */
@@ -89,6 +97,18 @@ public class WifiCountryCode {
         } else {
             DBG = false;
         }
+    }
+
+    private void sendCountryCodeChangedBroadcast() {
+        if (mContext == null) {
+            return;
+        }
+
+        Log.d(TAG, "sending WIFI_COUNTRY_CODE_CHANGED_ACTION");
+        Intent intent = new Intent(WifiManager.WIFI_COUNTRY_CODE_CHANGED_ACTION);
+        intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+        intent.putExtra(WifiManager.EXTRA_COUNTRY_CODE, getCountryCode());
+        mContext.sendStickyBroadcastAsUser(intent, UserHandle.ALL);
     }
 
     private void initializeTelephonyCountryCodeIfNeeded() {
@@ -192,7 +212,7 @@ public class WifiCountryCode {
         } else {
             Log.d(TAG, "skip update supplicant not ready yet");
         }
-
+        sendCountryCodeChangedBroadcast();
         return true;
     }
 

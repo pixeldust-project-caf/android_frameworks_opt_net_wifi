@@ -50,12 +50,26 @@ public class WifiSettingsConfigStore {
     // List of all allowed keys.
     private static final ArrayList<Key> sKeys = new ArrayList<>();
 
+    /**
+     * Setting to enable Beacon Protection in SAP; disabled by default, and setting to 1
+     * will enable it. In the future, additional values may be supported.
+     */
+    public static final Key<Boolean> SOFTAP_BEACON_PROTECTION_ENABLED =
+            new Key<>("softap_beacon_protection_enabled", false);
+
     /******** Wifi shared pref keys ***************/
     /**
      * Indicate whether factory reset request is pending.
      */
     public static final Key<Boolean> WIFI_P2P_PENDING_FACTORY_RESET =
             new Key<>("wifi_p2p_pending_factory_reset", false);
+
+    /**
+     * Setting to enable OCV in SAP; disabled by default, and setting to 1
+     * will enable it. In the future, additional values may be supported.
+     */
+    public static final Key<Boolean> SOFTAP_OCV_ENABLED =
+            new Key<>("softap_ocv_enabled", false);
 
     /**
      * Allow scans to be enabled even wifi is turned off.
@@ -82,7 +96,25 @@ public class WifiSettingsConfigStore {
     public static final Key<String> WIFI_P2P_DEVICE_NAME =
             new Key<>("wifi_p2p_device_name", null);
 
-    /******** Wifi shared pref keys ***************/
+    /**
+     * Extend Wifi Coverage
+     */
+    public static final Key<Boolean> WIFI_COVERAGE_EXTEND_FEATURE_ENABLED =
+            new Key<>("wifi_coverage_extend_feature_enabled", false);
+
+    /**
+     * Enable/disbale Wi-Fi whitelist network roaming
+     */
+    public static final Key<Boolean> WIFI_WHITELIST_ROAMING_ENABLED =
+            new Key<>("wifi_whitelist_roaming_enabled", true);
+
+    /**
+     * Enable/disble Wi=Fi new network auto connection attempts
+     */
+    public static final Key<Boolean> WIFI_NEW_NETWORK_AUTO_CONNECTION_ENABLED =
+            new Key<>("wifi_new_network_auto_connection_enabled", true);
+
+   /******** Wifi shared pref keys ***************/
 
     private final Context mContext;
     private final Handler mHandler;
@@ -385,6 +417,13 @@ public class WifiSettingsConfigStore {
         @Override
         public @WifiConfigStore.StoreFileId int getStoreFileId() {
             // Shared general store.
+            return WifiConfigStore.STORE_FILE_SHARED_GENERAL;
+        }
+
+        @Override
+        public @WifiConfigStore.StoreFileId int getStoreFileId(int staId) {
+            // Shared general store. 
+            // Return is independent of staId as Settings is not used for secondary.
             return WifiConfigStore.STORE_FILE_SHARED_GENERAL;
         }
     }

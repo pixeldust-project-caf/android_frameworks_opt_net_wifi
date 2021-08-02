@@ -95,6 +95,14 @@ public class ScanResultUtil {
     }
 
     /**
+     * Helper method to check if the provided |scanResult| corresponds to DPP network.
+     * This checks if the provided capabilities string contains DPP or not.
+     */
+    public static boolean isScanResultForDppNetwork(ScanResult scanResult) {
+        return scanResult.capabilities.contains("DPP");
+    }
+
+    /**
      * Helper method to check if the provided |scanResult| corresponds to OWE network.
      * This checks if the provided capabilities string contains OWE or not.
      */

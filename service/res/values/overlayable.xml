@@ -73,12 +73,18 @@
           <item type="integer" name="config_wifiInitialPartialScanChannelMaxCount" />
           <item type="integer" name="config_wifiInitialPartialScanChannelCacheAgeMins" />
           <item type="bool" name="config_wifi_framework_use_single_radio_chain_scan_results_network_selection" />
+          <item type="bool" name="config_wifi_framework_enable_quick_connect" />
+          <item type="integer" name="config_wifi_partial_scan_results_fetching_period_ms" />
           <item type="bool" name="config_wifi_only_link_same_credential_configurations" />
           <item type="bool" name="config_wifi_framework_enable_sar_tx_power_limit" />
           <item type="bool" name="config_wifi_framework_enable_soft_ap_sar_tx_power_limit" />
           <item type="bool" name="config_wifiSofapClientForceDisconnectSupported" />
           <item type="bool" name="config_wifi_softap_acs_supported" />
+          <item type="bool" name="config_wifi_softap_acs_include_dfs" />
           <item type="bool" name="config_wifi_softap_sae_supported" />
+          <item type="bool" name="config_vendor_wifi_softap_owe_supported" />
+          <item type="bool" name="config_vendor_softap_beacon_protection_supported" />
+          <item type="bool" name="config_vendor_softap_ocv_supported" />
           <item type="bool" name="config_wifi_softap_ieee80211ac_supported" />
           <item type="bool" name="config_wifiSoftapIeee80211axSupported" />
           <item type="bool" name="config_wifiSoftap6ghzSupported" />
@@ -145,6 +151,7 @@
           <item type="integer" name="config_wifiStationaryPnoScanIntervalMillis" />
           <item type="integer" name="config_wifiDelayDisconnectOnImsLostMs" />
           <item type="bool" name="config_wifiMinConfirmationDurationSendNetworkScoreEnabled" />
+          <item type="bool" name="config_vendorWifi11axReadySupport" />
           <!-- Params from config.xml that can be overlayed -->
 
           <!-- Params from strings.xml that can be overlayed -->
@@ -210,6 +217,7 @@
           <item type="string" name="wifi_softap_auto_shutdown_timeout_expired_summary" />
           <item type="string" name="wifi_sim_required_title" />
           <item type="string" name="wifi_sim_required_message" />
+          <item type="string" name="config_vendor_wifi_tether_bridge_interface_name" />
           <!-- Params from strings.xml that can be overlayed -->
 
           <!-- Params from styles.xml that can be overlayed -->

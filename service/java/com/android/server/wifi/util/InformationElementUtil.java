@@ -898,6 +898,7 @@ public class InformationElementUtil {
      * by wpa_supplicant.
      */
     public static class Capabilities {
+        private static final int CAP_VHT_8SS_OFFSET = 224; //(0xEO)
         private static final int WPA_VENDOR_OUI_TYPE_ONE = 0x01f25000;
         private static final int WPS_VENDOR_OUI_TYPE = 0x04f25000;
         private static final short WPA_VENDOR_OUI_VERSION = 0x0001;
@@ -920,6 +921,7 @@ public class InformationElementUtil {
         private static final int RSN_OSEN = 0x019a6f50;
         private static final int RSN_AKM_EAP_FILS_SHA256 = 0x0eac0f00;
         private static final int RSN_AKM_EAP_FILS_SHA384 = 0x0fac0f00;
+        private static final int WPA2_AKM_DPP = 0x029a6f50;
 
         private static final int WPA_CIPHER_NONE = 0x00f25000;
         private static final int WPA_CIPHER_TKIP = 0x02f25000;
@@ -939,6 +941,8 @@ public class InformationElementUtil {
         public boolean isIBSS;
         public boolean isPrivacy;
         public boolean isWPS;
+        public boolean isHe;
+        public boolean isVht8ss;
 
         public Capabilities() {
         }
@@ -1007,6 +1011,9 @@ public class InformationElementUtil {
                         case RSN_AKM_PSK_SHA256:
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_PSK_SHA256);
                             break;
+                        case WPA2_AKM_DPP:
+                            rsnKeyManagement.add(ScanResult.KEY_MGMT_DPP);
+                            break;
                         case RSN_AKM_SAE:
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_SAE);
                             break;
@@ -1017,6 +1024,7 @@ public class InformationElementUtil {
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_OWE);
                             break;
                         case RSN_AKM_EAP_SUITE_B_192:
+                            Log.e("informationelement", "captured suite b" );
                             rsnKeyManagement.add(ScanResult.KEY_MGMT_EAP_SUITE_B_192);
                             break;
                         case RSN_OSEN:
@@ -1243,6 +1251,14 @@ public class InformationElementUtil {
                         keyManagement.add(oweKeyManagement);
                     }
                 }
+
+                if (ie.id == InformationElement.EID_VHT_CAPABILITIES && ie.bytes != null &&
+                    ie.bytes.length > 0 && ((ie.bytes[1] & CAP_VHT_8SS_OFFSET) == CAP_VHT_8SS_OFFSET)) {
+                    isVht8ss = true;
+                } else if (ie.id == InformationElement.EID_EXTENSION_PRESENT
+                               && ie.idExt == InformationElement.EID_EXT_HE_CAPABILITIES) {
+                    isHe = true;
+                }
             }
         }
 
@@ -1306,6 +1322,8 @@ public class InformationElementUtil {
                     return "WAPI-PSK";
                 case ScanResult.KEY_MGMT_WAPI_CERT:
                     return "WAPI-CERT";
+                case ScanResult.KEY_MGMT_DPP:
+                    return "DPP";
                 case ScanResult.KEY_MGMT_FILS_SHA256:
                     return "EAP-FILS-SHA256";
                 case ScanResult.KEY_MGMT_FILS_SHA384:
@@ -1361,6 +1379,9 @@ public class InformationElementUtil {
             }
             if (isWPS) {
                 capabilities.append("[WPS]");
+            }
+            if (isVht8ss && isHe) {
+                capabilities.append("[WFA-HE-READY]");
             }
 
             return capabilities.toString();

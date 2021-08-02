@@ -2874,8 +2874,8 @@ public class ClientModeImplTest extends WifiBaseTest {
                 .thenReturn(TEST_LOCAL_MAC_ADDRESS.toString());
 
         WifiConfiguration config = new WifiConfiguration();
-        config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
         config.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+        config.macRandomizationSetting = WifiConfiguration.RANDOMIZATION_NONE;
         when(mWifiConfigManager.getConfiguredNetworkWithoutMasking(0)).thenReturn(config);
 
         mCmi.sendMessage(ClientModeImpl.CMD_START_CONNECT, 0, 0, sBSSID);

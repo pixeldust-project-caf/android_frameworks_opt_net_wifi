@@ -28,6 +28,7 @@ import android.util.Log;
 
 import com.android.server.wifi.Clock;
 import com.android.server.wifi.ScanDetail;
+import com.android.server.wifi.WifiGbk;
 import com.android.server.wifi.WifiMonitor;
 import com.android.server.wifi.WifiNative;
 import com.android.server.wifi.scanner.ChannelHelper.ChannelCollection;
@@ -268,8 +269,9 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
                 pollLatestScanDataForPno();
                 break;
             case WifiMonitor.SCAN_RESULTS_EVENT:
+                boolean isPartialScanResults = (msg.arg1 == WifiScanner.ON_PARTIAL_SCAN_RESULTS);
                 cancelScanTimeout();
-                pollLatestScanData();
+                pollLatestScanData(isPartialScanResults);
                 break;
             default:
                 // ignore unknown event
@@ -321,6 +323,7 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
             int numFilteredScanResults = 0;
             for (int i = 0; i < mNativePnoScanResults.size(); ++i) {
                 ScanResult result = mNativePnoScanResults.get(i).getScanResult();
+                WifiGbk.processScanResult(result); // wifigbk++
                 long timestamp_ms = result.timestamp / 1000; // convert us -> ms
                 if (timestamp_ms > mLastPnoScanSettings.startTime) {
                     hwPnoScanResults.add(result);
@@ -355,7 +358,7 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
         return bandScanned;
     }
 
-    private void pollLatestScanData() {
+    private void pollLatestScanData(boolean isPartial) {
         synchronized (mSettingsLock) {
             if (mLastScanSettings == null) {
                  // got a scan before we started scanning or after scan was canceled
@@ -367,6 +370,7 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
             int numFilteredScanResults = 0;
             for (int i = 0; i < mNativeScanResults.size(); ++i) {
                 ScanResult result = mNativeScanResults.get(i).getScanResult();
+                WifiGbk.processScanResult(result); // wifigbk++
                 long timestamp_ms = result.timestamp / 1000; // convert us -> ms
                 if (timestamp_ms > mLastScanSettings.startTime) {
                     if (mLastScanSettings.singleScanFreqs.containsChannel(
@@ -393,11 +397,18 @@ public class WificondScannerImpl extends WifiScannerImpl implements Handler.Call
                 mLatestSingleScanResult = new WifiScanner.ScanData(0, 0, 0,
                         getBandScanned(mLastScanSettings.singleScanFreqs),
                         singleScanResults.toArray(new ScanResult[singleScanResults.size()]));
-                mLastScanSettings.singleScanEventHandler
-                        .onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+                if (isPartial) {
+                    mLastScanSettings.singleScanEventHandler
+                            .onScanStatus(WifiNative.WIFI_SCAN_PARTIAL_RESULTS_AVAILABLE);
+                } else {
+                    mLastScanSettings.singleScanEventHandler
+                            .onScanStatus(WifiNative.WIFI_SCAN_RESULTS_AVAILABLE);
+                }
             }
-
-            mLastScanSettings = null;
+            if (!isPartial) {
+                WifiGbk.ageBssCache(); // wifigbk++
+                mLastScanSettings = null;
+            }
         }
     }
 

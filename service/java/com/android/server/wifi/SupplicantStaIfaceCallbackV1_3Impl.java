@@ -23,6 +23,7 @@ import android.net.wifi.WifiManager;
 import android.util.Log;
 
 import java.util.ArrayList;
+import android.util.Pair;
 
 abstract class SupplicantStaIfaceCallbackV1_3Impl extends
         android.hardware.wifi.supplicant.V1_3.ISupplicantStaIfaceCallback.Stub {
