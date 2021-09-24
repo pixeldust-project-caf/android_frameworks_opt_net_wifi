@@ -52,6 +52,8 @@ android_test {
 }
 
 android_test {
+    // Keystone: b/201075031 test disabled
+    enabled: false,
     name: "SdkWifiTrackerLibTests",
     defaults: ["WifiTrackerLibTestDefaults"],
     exclude_srcs: ["src/**/HiddenApiWrapperTest.java"],
