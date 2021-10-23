@@ -454,6 +454,7 @@ public class WifiEntry implements Comparable<WifiEntry> {
         public String gateway;
         public String subnetMask;
         public int wifiStandard = ScanResult.WIFI_STANDARD_UNKNOWN;
+        public NetworkCapabilities networkCapabilities;
 
         /**
          * Creates an empty ConnectedInfo
@@ -473,6 +474,7 @@ public class WifiEntry implements Comparable<WifiEntry> {
             gateway = other.gateway;
             subnetMask = other.subnetMask;
             wifiStandard = other.wifiStandard;
+            networkCapabilities = other.networkCapabilities;
         }
     }
 
@@ -929,6 +931,7 @@ public class WifiEntry implements Comparable<WifiEntry> {
         if (mConnectedInfo == null) {
             return;
         }
+        mConnectedInfo.networkCapabilities = mNetworkCapabilities;
         mIsValidated = mNetworkCapabilities != null
                 && mNetworkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
         notifyOnUpdated();
@@ -1033,6 +1036,11 @@ public class WifiEntry implements Comparable<WifiEntry> {
     public boolean equals(Object other) {
         if (!(other instanceof WifiEntry)) return false;
         return getKey().equals(((WifiEntry) other).getKey());
+    }
+
+    @Override
+    public int hashCode() {
+        return getKey().hashCode();
     }
 
     @Override

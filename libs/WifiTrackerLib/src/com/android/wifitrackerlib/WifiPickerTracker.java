@@ -358,6 +358,9 @@ public class WifiPickerTracker extends BaseWifiTracker {
                     && mNetworkRequestEntry.getConnectedState() != CONNECTED_STATE_DISCONNECTED) {
                 mConnectedWifiEntry = mNetworkRequestEntry;
             }
+            if (mConnectedWifiEntry != null) {
+                mConnectedWifiEntry.setIsDefaultNetwork(mIsWifiDefaultRoute);
+            }
             mWifiEntries.clear();
             final Set<ScanResultKey> scanResultKeysWithVisibleSuggestions =
                     mSuggestedWifiEntryCache.stream()
@@ -459,8 +462,8 @@ public class WifiPickerTracker extends BaseWifiTracker {
         for (ScanResultKey scanKey: newScanKeys) {
             final StandardWifiEntryKey entryKey =
                     new StandardWifiEntryKey(scanKey, true /* isTargetingNewNetworks */);
-            final StandardWifiEntry newEntry = new StandardWifiEntry(mContext, mMainHandler,
-                    entryKey, mStandardWifiConfigCache.get(entryKey),
+            final StandardWifiEntry newEntry = new StandardWifiEntry(mInjector, mContext,
+                    mMainHandler, entryKey, mStandardWifiConfigCache.get(entryKey),
                     scanResultsByKey.get(scanKey), mWifiManager,
                     false /* forSavedNetworksPage */);
             mStandardWifiEntryCache.add(newEntry);
@@ -483,33 +486,36 @@ public class WifiPickerTracker extends BaseWifiTracker {
     private void updateSuggestedWifiEntryScans(@NonNull List<ScanResult> scanResults) {
         checkNotNull(scanResults, "Scan Result list should not be null!");
 
+        // Get every ScanResultKey that is user shareable
+        final Set<StandardWifiEntryKey> userSharedEntryKeys =
+                mWifiManager.getWifiConfigForMatchedNetworkSuggestionsSharedWithUser(scanResults)
+                        .stream()
+                        .map(StandardWifiEntryKey::new)
+                        .collect(Collectors.toSet());
+
         // Group scans by ScanResultKey key
         final Map<ScanResultKey, List<ScanResult>> scanResultsByKey = scanResults.stream()
                 .filter(scan -> !TextUtils.isEmpty(scan.SSID))
                 .collect(Collectors.groupingBy(ScanResultKey::new));
 
-        // Iterate through current entries and update each entry's scan results
+        // Iterate through current entries and update each entry's scan results and shareability.
         final Set<StandardWifiEntryKey> seenEntryKeys = new ArraySet<>();
         mSuggestedWifiEntryCache.forEach(entry -> {
             final StandardWifiEntryKey entryKey = entry.getStandardWifiEntryKey();
             seenEntryKeys.add(entryKey);
             // Update scan results if available, or set to null.
             entry.updateScanResultInfo(scanResultsByKey.get(entryKey.getScanResultKey()));
+            entry.setUserShareable(userSharedEntryKeys.contains(entryKey));
         });
         // Create new StandardWifiEntry objects for each leftover config with scan results.
-        final Set<StandardWifiEntryKey> userSharedEntryKeys =
-                mWifiManager.getWifiConfigForMatchedNetworkSuggestionsSharedWithUser(scanResults)
-                        .stream()
-                        .map(StandardWifiEntryKey::new)
-                        .collect(Collectors.toSet());
         for (StandardWifiEntryKey entryKey : mSuggestedConfigCache.keySet()) {
             final ScanResultKey scanKey = entryKey.getScanResultKey();
             if (seenEntryKeys.contains(entryKey)
                     || !scanResultsByKey.containsKey(scanKey)) {
                 continue;
             }
-            final StandardWifiEntry newEntry = new StandardWifiEntry(mContext, mMainHandler,
-                    entryKey, mSuggestedConfigCache.get(entryKey),
+            final StandardWifiEntry newEntry = new StandardWifiEntry(mInjector, mContext,
+                    mMainHandler, entryKey, mSuggestedConfigCache.get(entryKey),
                     scanResultsByKey.get(scanKey), mWifiManager,
                     false /* forSavedNetworksPage */);
             newEntry.setUserShareable(userSharedEntryKeys.contains(entryKey));
@@ -801,9 +807,10 @@ public class WifiPickerTracker extends BaseWifiTracker {
         final StandardWifiEntryKey entryKey = new StandardWifiEntryKey(matchingConfigs.get(0));
         if (mNetworkRequestEntry == null
                 || !mNetworkRequestEntry.getStandardWifiEntryKey().equals(entryKey)) {
-            mNetworkRequestEntry = new NetworkRequestEntry(mContext, mMainHandler, entryKey,
-                    mWifiManager, false /* forSavedNetworksPage */);
+            mNetworkRequestEntry = new NetworkRequestEntry(mInjector, mContext, mMainHandler,
+                    entryKey, mWifiManager, false /* forSavedNetworksPage */);
             mNetworkRequestEntry.updateConfig(matchingConfigs);
+            updateNetworkRequestEntryScans(mScanResultUpdater.getScanResults());
         }
         mNetworkRequestEntry.updateConnectionInfo(wifiInfo, networkInfo);
     }
@@ -838,8 +845,8 @@ public class WifiPickerTracker extends BaseWifiTracker {
                 }
             }
             final StandardWifiEntry connectedEntry =
-                    new StandardWifiEntry(mContext, mMainHandler, entryKey, configs, null,
-                            mWifiManager, false /* forSavedNetworksPage */);
+                    new StandardWifiEntry(mInjector, mContext, mMainHandler, entryKey, configs,
+                            null, mWifiManager, false /* forSavedNetworksPage */);
             connectedEntry.updateConnectionInfo(wifiInfo, networkInfo);
             mStandardWifiEntryCache.add(connectedEntry);
             return;
@@ -873,8 +880,8 @@ public class WifiPickerTracker extends BaseWifiTracker {
                 }
             }
             final StandardWifiEntry connectedEntry =
-                    new StandardWifiEntry(mContext, mMainHandler, entryKey, configs, null,
-                            mWifiManager, false /* forSavedNetworksPage */);
+                    new StandardWifiEntry(mInjector, mContext, mMainHandler, entryKey, configs,
+                            null, mWifiManager, false /* forSavedNetworksPage */);
             connectedEntry.updateConnectionInfo(wifiInfo, networkInfo);
             mSuggestedWifiEntryCache.add(connectedEntry);
             return;
