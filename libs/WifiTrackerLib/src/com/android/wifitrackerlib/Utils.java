@@ -21,30 +21,31 @@ import static android.net.wifi.WifiConfiguration.NetworkSelectionStatus.NETWORK_
 
 import static java.util.Comparator.comparingInt;
 
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.NetworkInfo.DetailedState;
-import android.net.NetworkScoreManager;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiConfiguration.NetworkSelectionStatus;
 import android.net.wifi.WifiInfo;
 import android.os.Build;
 import android.os.PersistableBundle;
-import android.provider.Settings;
+import android.os.UserHandle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionInfo;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -58,27 +59,6 @@ import java.util.StringJoiner;
  * Utility methods for WifiTrackerLib.
  */
 public class Utils {
-    /** Copy of the @hide Settings.Global.USE_OPEN_WIFI_PACKAGE constant. */
-    static final String SETTINGS_GLOBAL_USE_OPEN_WIFI_PACKAGE = "use_open_wifi_package";
-
-    @VisibleForTesting
-    static FeatureFlagUtilsWrapper sFeatureFlagUtilsWrapper = new FeatureFlagUtilsWrapper();
-
-    static class FeatureFlagUtilsWrapper {
-        boolean isProviderModelEnabled(Context context) {
-            return HiddenApiWrapper.isProviderModelEnabled(context);
-        }
-    }
-
-    private static NetworkScoreManager sNetworkScoreManager;
-
-    private static String getActiveScorerPackage(@NonNull Context context) {
-        if (sNetworkScoreManager == null) {
-            sNetworkScoreManager = context.getSystemService(NetworkScoreManager.class);
-        }
-        return sNetworkScoreManager.getActiveScorerPackage();
-    }
-
     // Returns the ScanResult with the best RSSI from a list of ScanResults.
     @Nullable
     public static ScanResult getBestScanResultByLevel(@NonNull List<ScanResult> scanResults) {
@@ -231,13 +211,6 @@ public class Utils {
      */
     static String getAppLabel(Context context, String packageName) {
         try {
-            String openWifiPackageName = Settings.Global.getString(context.getContentResolver(),
-                    SETTINGS_GLOBAL_USE_OPEN_WIFI_PACKAGE);
-            if (!TextUtils.isEmpty(openWifiPackageName) && TextUtils.equals(packageName,
-                    getActiveScorerPackage(context))) {
-                packageName = openWifiPackageName;
-            }
-
             ApplicationInfo appInfo = context.getPackageManager().getApplicationInfo(
                     packageName,
                     0 /* flags */);
@@ -254,8 +227,6 @@ public class Utils {
             boolean isLowQuality) {
         final StringJoiner sj = new StringJoiner(context.getString(
                 R.string.wifitrackerlib_summary_separator));
-        final boolean hideConnected =
-                !isDefaultNetwork && sFeatureFlagUtilsWrapper.isProviderModelEnabled(context);
 
         if (wifiConfiguration != null
                 && (wifiConfiguration.fromWifiNetworkSuggestion
@@ -264,7 +235,7 @@ public class Utils {
             final String suggestionOrSpecifierLabel =
                     getSuggestionOrSpecifierLabel(context, wifiConfiguration);
             if (!TextUtils.isEmpty(suggestionOrSpecifierLabel)) {
-                if (hideConnected) {
+                if (!isDefaultNetwork) {
                     sj.add(context.getString(R.string.wifitrackerlib_available_via_app,
                             suggestionOrSpecifierLabel));
                 } else {
@@ -286,7 +257,7 @@ public class Utils {
         }
 
         // Default to "Connected" if nothing else to display
-        if (sj.length() == 0 && !hideConnected) {
+        if (sj.length() == 0 && isDefaultNetwork) {
             return context.getResources().getStringArray(R.array.wifitrackerlib_wifi_status)
                     [DetailedState.CONNECTED.ordinal()];
         }
@@ -310,11 +281,13 @@ public class Utils {
     }
 
 
-    static String getDisconnectedDescription(Context context,
+    static String getDisconnectedDescription(
+            @NonNull WifiTrackerInjector injector,
+            Context context,
             WifiConfiguration wifiConfiguration,
             boolean forSavedNetworksPage,
             boolean concise) {
-        if (context == null) {
+        if (context == null || wifiConfiguration == null) {
             return "";
         }
         final StringJoiner sj = new StringJoiner(context.getString(
@@ -323,24 +296,26 @@ public class Utils {
         // For "Saved", "Saved by ...", and "Available via..."
         if (concise) {
             sj.add(context.getString(R.string.wifitrackerlib_wifi_disconnected));
-        } else if (wifiConfiguration != null) {
-            if (forSavedNetworksPage && !wifiConfiguration.isPasspoint()) {
-                final CharSequence appLabel = getAppLabel(context, wifiConfiguration.creatorName);
+        } else if (forSavedNetworksPage && !wifiConfiguration.isPasspoint()) {
+            if (!injector.getNoAttributionAnnotationPackages().contains(
+                    wifiConfiguration.creatorName)) {
+                final CharSequence appLabel = getAppLabel(context,
+                        wifiConfiguration.creatorName);
                 if (!TextUtils.isEmpty(appLabel)) {
                     sj.add(context.getString(R.string.wifitrackerlib_saved_network, appLabel));
                 }
-            } else {
-                if (wifiConfiguration.fromWifiNetworkSuggestion) {
-                    final String suggestionOrSpecifierLabel =
-                            getSuggestionOrSpecifierLabel(context, wifiConfiguration);
-                    if (!TextUtils.isEmpty(suggestionOrSpecifierLabel)) {
-                        sj.add(context.getString(
-                                R.string.wifitrackerlib_available_via_app,
-                                suggestionOrSpecifierLabel));
-                    }
-                } else {
-                    sj.add(context.getString(R.string.wifitrackerlib_wifi_remembered));
+            }
+        } else {
+            if (wifiConfiguration.fromWifiNetworkSuggestion) {
+                final String suggestionOrSpecifierLabel =
+                        getSuggestionOrSpecifierLabel(context, wifiConfiguration);
+                if (!TextUtils.isEmpty(suggestionOrSpecifierLabel)) {
+                    sj.add(context.getString(
+                            R.string.wifitrackerlib_available_via_app,
+                            suggestionOrSpecifierLabel));
                 }
+            } else {
+                sj.add(context.getString(R.string.wifitrackerlib_wifi_remembered));
             }
         }
 
@@ -910,4 +885,88 @@ public class Utils {
             array[offset] = 0;
         }
     }
+
+    @Nullable
+    private static Context createPackageContextAsUser(int uid, Context context) {
+        Context userContext = null;
+        try {
+            userContext = context.createPackageContextAsUser(context.getPackageName(), 0,
+                    UserHandle.getUserHandleForUid(uid));
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+        return userContext;
+    }
+
+    @Nullable
+    private static DevicePolicyManager retrieveDevicePolicyManagerFromUserContext(int uid,
+            Context context) {
+        Context userContext = createPackageContextAsUser(uid, context);
+        if (userContext == null) return null;
+        return userContext.getSystemService(DevicePolicyManager.class);
+    }
+
+    @Nullable
+    private static Pair<UserHandle, ComponentName> getDeviceOwner(Context context) {
+        DevicePolicyManager devicePolicyManager =
+                context.getSystemService(DevicePolicyManager.class);
+        if (devicePolicyManager == null) return null;
+        UserHandle deviceOwnerUser = null;
+        ComponentName deviceOwnerComponent = null;
+        try {
+            deviceOwnerUser = devicePolicyManager.getDeviceOwnerUser();
+            deviceOwnerComponent = devicePolicyManager.getDeviceOwnerComponentOnAnyUser();
+        } catch (Exception e) {
+            throw new RuntimeException("getDeviceOwner error - " + e.toString());
+        }
+        if (deviceOwnerUser == null || deviceOwnerComponent == null) return null;
+
+        if (deviceOwnerComponent.getPackageName() == null) {
+            // shouldn't happen
+            return null;
+        }
+        return new Pair<>(deviceOwnerUser, deviceOwnerComponent);
+    }
+
+    /**
+     * Returns true if the |callingUid|/|callingPackage| is the device owner.
+     */
+    public static boolean isDeviceOwner(int uid, @Nullable String packageName, Context context) {
+        // Cannot determine if the app is DO/PO if packageName is null. So, will return false to be
+        // safe.
+        if (packageName == null) {
+            return false;
+        }
+        Pair<UserHandle, ComponentName> deviceOwner = getDeviceOwner(context);
+
+        // no device owner
+        if (deviceOwner == null) return false;
+
+        return deviceOwner.first.equals(UserHandle.getUserHandleForUid(uid))
+                && deviceOwner.second.getPackageName().equals(packageName);
+    }
+
+    /**
+     * Returns true if the |callingUid|/|callingPackage| is the profile owner.
+     */
+    public static boolean isProfileOwner(int uid, @Nullable String packageName, Context context) {
+        // Cannot determine if the app is DO/PO if packageName is null. So, will return false to be
+        // safe.
+        if (packageName == null) {
+            return false;
+        }
+        DevicePolicyManager devicePolicyManager =
+                retrieveDevicePolicyManagerFromUserContext(uid, context);
+        if (devicePolicyManager == null) return false;
+        return devicePolicyManager.isProfileOwnerApp(packageName);
+    }
+
+    /**
+     * Returns true if the |callingUid|/|callingPackage| is the device or profile owner.
+     */
+    public static boolean isDeviceOrProfileOwner(int uid, String packageName, Context context) {
+        return isDeviceOwner(uid, packageName, context)
+                || isProfileOwner(uid, packageName, context);
+    }
+
 }
