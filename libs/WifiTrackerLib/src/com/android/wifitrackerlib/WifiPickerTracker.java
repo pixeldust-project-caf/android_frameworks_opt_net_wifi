@@ -241,10 +241,10 @@ public class WifiPickerTracker extends BaseWifiTracker {
     @WorkerThread
     @Override
     protected void handleWifiStateChangedAction() {
-        conditionallyUpdateScanResults(true /* lastScanSucceeded */);
-        if (mWifiManager.getWifiState() != WifiManager.WIFI_STATE_ENABLED) {
+        if (mWifiManager.getWifiState() == WifiManager.WIFI_STATE_DISABLED) {
             updateConnectionInfo(null, null);
         }
+        conditionallyUpdateScanResults(true /* lastScanSucceeded */);
         updateWifiEntries();
     }
 
@@ -386,13 +386,23 @@ public class WifiPickerTracker extends BaseWifiTracker {
                                     || entry == mConnectedWifiEntry)
                             .map(entry -> entry.getStandardWifiEntryKey().getScanResultKey())
                             .collect(Collectors.toSet());
+            Set<String> passpointUtf8Ssids = new ArraySet<>();
+            for (PasspointWifiEntry passpointWifiEntry : mPasspointWifiEntryCache.values()) {
+                passpointUtf8Ssids.addAll(passpointWifiEntry.getAllUtf8Ssids());
+            }
             for (StandardWifiEntry entry : mStandardWifiEntryCache) {
                 if (entry == mConnectedWifiEntry) {
                     continue;
                 }
-                if (!entry.isSaved() && scanResultKeysWithVisibleSuggestions
-                        .contains(entry.getStandardWifiEntryKey().getScanResultKey())) {
-                    continue;
+                if (!entry.isSaved()) {
+                    if (scanResultKeysWithVisibleSuggestions
+                            .contains(entry.getStandardWifiEntryKey().getScanResultKey())) {
+                        continue;
+                    }
+                    // Filter out any unsaved entries that are already provisioned with Passpoint
+                    if (passpointUtf8Ssids.contains(entry.getSsid())) {
+                        continue;
+                    }
                 }
                 mWifiEntries.add(entry);
             }
@@ -406,7 +416,7 @@ public class WifiPickerTracker extends BaseWifiTracker {
                             && !entry.isAlreadyProvisioned()).collect(toList()));
             mWifiEntries.addAll(getContextualWifiEntries().stream().filter(entry ->
                     entry.getConnectedState() == CONNECTED_STATE_DISCONNECTED).collect(toList()));
-            Collections.sort(mWifiEntries);
+            Collections.sort(mWifiEntries, WifiEntry.WIFI_PICKER_COMPARATOR);
             if (isVerboseLoggingEnabled()) {
                 Log.v(TAG, "Connected WifiEntry: " + mConnectedWifiEntry);
                 Log.v(TAG, "Updated WifiEntries: " + Arrays.toString(mWifiEntries.toArray()));
