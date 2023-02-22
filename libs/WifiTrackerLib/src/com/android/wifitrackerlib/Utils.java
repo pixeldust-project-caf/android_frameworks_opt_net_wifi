@@ -66,6 +66,10 @@ import java.util.StringJoiner;
  * Utility methods for WifiTrackerLib.
  */
 public class Utils {
+    // TODO(b/242144920): remove this after publishing this reason in U.
+    // This reason is added in U and hidden in T, using a hard-coded value first.
+    public static final int DISABLED_TRANSITION_DISABLE_INDICATION = 13;
+
     // Returns the ScanResult with the best RSSI from a list of ScanResults.
     @Nullable
     public static ScanResult getBestScanResultByLevel(@NonNull List<ScanResult> scanResults) {
@@ -288,7 +292,7 @@ public class Utils {
      * This removes enclosing Quotes for plaintext, and converts unquoted
      * hexadecimal raw bytes to readable text.
      */
-    static String getReadableText(String ssid) {
+    public static String getReadableText(String ssid) {
         // unqouted hexadecimal raw bytes
         if (!TextUtils.isEmpty(ssid) && ssid.charAt(0) != '"') {
             try {
@@ -492,6 +496,9 @@ public class Utils {
                 case WifiConfiguration.NetworkSelectionStatus.DISABLED_NO_INTERNET_PERMANENT:
                 case WifiConfiguration.NetworkSelectionStatus.DISABLED_NO_INTERNET_TEMPORARY:
                     return context.getString(R.string.wifitrackerlib_wifi_no_internet_no_reconnect);
+                case DISABLED_TRANSITION_DISABLE_INDICATION:
+                    return context.getString(
+                            R.string.wifitrackerlib_wifi_disabled_transition_disable_indication);
                 default:
                     break;
             }
